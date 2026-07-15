@@ -10,6 +10,7 @@ Aplicação web completa com **login por usuário**, **banco compartilhado**, **
 |---|---|
 | **Meu Dia** | Cockpit: tudo que está atrasado, vence hoje ou espera sua decisão, de todas as obras |
 | **Painel Executivo** | Carteira, margem, caixa, desvio orçado × comprado, curva ABC e ranking de fornecedores |
+| **Advisor (IA)** | Conselheiro que lê os dados reais da operação e responde com números — Ctrl+K de qualquer tela |
 | **Obras / centros de custo** | Cada contrato isolado, com portfólio consolidado e duplicação a partir de modelo |
 | **Financeiro** | Contas a pagar/receber automáticas, agenda, fluxo de caixa projetado e DRE por obra |
 | **Rotinas** | Tarefas recorrentes com geração automática de ocorrências e medição de aderência |

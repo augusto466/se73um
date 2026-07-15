@@ -2,6 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { listarObras, obraAtiva } from '@/lib/obra';
 import Sidebar from '@/components/Sidebar';
 import Topbar from '@/components/Topbar';
+import Advisor from '@/components/Advisor';
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const supabase = supabaseServer();
@@ -40,6 +41,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <Topbar obra={ativa} />
         <div className="content">{children}</div>
       </div>
+      <Advisor />
     </div>
   );
 }
