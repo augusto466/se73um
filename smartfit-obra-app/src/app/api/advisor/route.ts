@@ -1,7 +1,7 @@
 import { supabaseServer, supabaseAdmin } from '@/lib/supabase/server';
 import { montarContexto } from '@/lib/contexto';
 import { simular, impactoEmTexto, type EventoCron, type Dependencia } from '@/lib/replanejamento';
-import { MODELO, ESFORCO, cacheBreakpoint, montarSystem, logUso } from '@/lib/ia';
+import { MODELO, outputConfig, cacheBreakpoint, montarSystem, logUso } from '@/lib/ia';
 
 export const maxDuration = 60;
 
@@ -415,8 +415,10 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({
               model: MODELO,
-              max_tokens: 2000,
-              effort: ESFORCO,
+              // o raciocínio adaptativo do Sonnet 5 consome tokens de saída:
+              // 2000 apertaria a resposta depois do bloco de pensamento
+              max_tokens: 8000,
+              output_config: outputConfig,
               system,
               tools: FERRAMENTAS,
               stream: true,
@@ -456,11 +458,22 @@ export async function POST(req: Request) {
               try { ev = JSON.parse(payload); } catch { continue; }
 
               if (ev.type === 'content_block_start') {
-                atual = ev.content_block.type === 'tool_use'
-                  ? { type: 'tool_use', id: ev.content_block.id, name: ev.content_block.name, json: '' }
-                  : { type: 'text', text: '' };
+                const tipo = ev.content_block?.type;
+                if (tipo === 'tool_use') {
+                  atual = { type: 'tool_use', id: ev.content_block.id, name: ev.content_block.name, json: '' };
+                } else if (tipo === 'thinking' || tipo === 'redacted_thinking') {
+                  // raciocínio adaptativo: não vai para a tela, mas precisa voltar
+                  // intacto no turno do assistente quando há ferramenta na sequência
+                  atual = { type: tipo, thinking: '', signature: '', data: ev.content_block?.data };
+                } else {
+                  atual = { type: 'text', text: '' };
+                }
               } else if (ev.type === 'content_block_delta') {
-                if (ev.delta?.type === 'text_delta' && atual?.type === 'text') {
+                if (ev.delta?.type === 'thinking_delta' && atual?.type === 'thinking') {
+                  atual.thinking += ev.delta.thinking ?? '';
+                } else if (ev.delta?.type === 'signature_delta' && atual?.type === 'thinking') {
+                  atual.signature += ev.delta.signature ?? '';
+                } else if (ev.delta?.type === 'text_delta' && atual?.type === 'text') {
                   atual.text += ev.delta.text;
                   textoFinal += ev.delta.text;
                   emitir({ t: 'txt', v: ev.delta.text });
@@ -483,11 +496,12 @@ export async function POST(req: Request) {
           if (stopReason !== 'tool_use' || !usos.length) break;
 
           // reconstrói o turno do assistente para continuar a conversa com a API
-          const conteudoAssistente = blocos.map(b =>
-            b.type === 'text'
-              ? { type: 'text', text: b.text }
-              : { type: 'tool_use', id: b.id, name: b.name, input: JSON.parse(b.json || '{}') }
-          ).filter((b: any) => b.type !== 'text' || b.text.trim());
+          const conteudoAssistente = blocos.map(b => {
+            if (b.type === 'text') return { type: 'text', text: b.text };
+            if (b.type === 'thinking') return { type: 'thinking', thinking: b.thinking, signature: b.signature };
+            if (b.type === 'redacted_thinking') return { type: 'redacted_thinking', data: b.data };
+            return { type: 'tool_use', id: b.id, name: b.name, input: JSON.parse(b.json || '{}') };
+          }).filter((b: any) => b.type !== 'text' || b.text.trim());
           apiMsgs.push({ role: 'assistant', content: conteudoAssistente });
 
           const resultados: any[] = [];

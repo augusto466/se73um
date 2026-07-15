@@ -9,12 +9,20 @@
 export const MODELO = process.env.ADVISOR_MODELO || 'claude-sonnet-5';
 
 /**
- * Esforço de raciocínio. A API usa 'high' por padrão, que é desperdício para a
- * maior parte das perguntas do advisor (ler contexto e chamar ferramenta).
- * 'medium' é o equilíbrio; para replanejar e analisar margem, o modelo tem
- * raciocínio adaptativo e sobe sozinho quando a pergunta exige.
+ * Esforço de raciocínio (low | medium | high | xhigh | max).
+ *
+ * No Sonnet 5 o raciocínio adaptativo é sempre ativo e o padrão da API é 'high':
+ * cada resposta gera um bloco de pensamento cobrado como token de SAÍDA (o lado
+ * caro). Para o advisor — que lê contexto e chama ferramenta — 'medium' entrega
+ * a mesma qualidade por uma fração do custo. O modelo ainda pensa fundo quando a
+ * pergunta realmente exige; 'effort' é sinal de comportamento, não teto de token.
+ *
+ * IMPORTANTE: vai em output_config, não solto no corpo da requisição.
  */
 export const ESFORCO = process.env.ADVISOR_ESFORCO || 'medium';
+
+/** Formato correto do parâmetro na Messages API. */
+export const outputConfig = { effort: ESFORCO };
 
 /**
  * Prompt caching.

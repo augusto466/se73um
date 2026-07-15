@@ -35,11 +35,24 @@ TTL de 1 hora: a escrita custa mais, mas conversa de trabalho passa de 5 minutos
 
 **Ganho esperado:** o system + ferramentas somam alguns milhares de tokens repetidos em toda mensagem. Numa conversa de 10 mensagens, paga-se ~1 vez em vez de 10.
 
-## Effort: medium
+## Effort: medium (e por que isso importa mais do que parece)
 
-Na API, `effort` vem como `high` por padrão no Sonnet 5 — desperdício para a maioria das perguntas do advisor. Ficou em `medium`; o raciocínio adaptativo sobe sozinho quando a pergunta exige (replanejamento, análise de margem).
+No Sonnet 5 o **raciocínio adaptativo é sempre ativo** e o padrão da API é `effort: high`. Cada resposta gera um bloco de pensamento cobrado como token de **saída** — o lado caro ($10/M no preço introdutório). Numa pergunta que pensa 5K tokens e responde 1K, paga-se por 6K de saída.
 
-Ajustável por `ADVISOR_ESFORCO` na Vercel.
+Ficou em `medium`: mesma qualidade para ler contexto e chamar ferramenta, por uma fração do custo. `effort` é sinal de comportamento, não teto de token — o modelo ainda pensa fundo quando a pergunta exige (replanejamento, análise de margem).
+
+**Formato correto:** vai em `output_config: { effort: "medium" }`, não solto no corpo. Passar `effort` na raiz retorna 400.
+
+**max_tokens subiu** (2000 → 8000 no chat, 800 → 4000 no briefing): o bloco de pensamento consome a mesma cota da resposta. Com 2000 o advisor corria o risco de pensar e ficar sem espaço para responder.
+
+Ajustável por `ADVISOR_ESFORCO` na Vercel: `low`, `medium`, `high`, `xhigh`, `max`.
+
+## Outras mudanças do Sonnet 5 que afetam o código
+
+- `temperature`, `top_p` e `top_k` são **ignorados** (não usamos).
+- `thinking: {budget_tokens: N}` retorna 400 — o controle agora é só via effort.
+- O tokenizer é novo: o mesmo texto rende ~30% mais tokens que no Sonnet 4.6. Mais um motivo para o caching valer.
+- Os blocos de `thinking` voltam no stream e são preservados no turno do assistente (exigência da API quando há ferramenta na sequência), mas não vão para a tela.
 
 ## Como medir
 

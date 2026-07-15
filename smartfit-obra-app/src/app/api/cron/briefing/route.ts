@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { montarContexto } from '@/lib/contexto';
-import { MODELO, ESFORCO, cacheBreakpoint, logUso } from '@/lib/ia';
+import { MODELO, outputConfig, cacheBreakpoint, logUso } from '@/lib/ia';
 
 export const maxDuration = 300;
 
@@ -66,8 +66,8 @@ export async function GET(req: Request) {
         },
         body: JSON.stringify({
           model: MODELO,
-          max_tokens: 800,
-          effort: ESFORCO,
+          max_tokens: 4000,   // o briefing sai curto, mas o pensamento entra na cota
+          output_config: outputConfig,
           // o cron roda vários usuários em sequência: o system fica cacheado entre eles
           system: [{ type: 'text', text: SISTEMA_BRIEFING, cache_control: cacheBreakpoint }],
           messages: [{ role: 'user', content: prompt }],
