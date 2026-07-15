@@ -39,9 +39,10 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
     fin = { lancs: l ?? [], saldo: Number(c?.saldo_inicial ?? 0) };
   }
 
-  const [colabs, centros, oportunidades, metricasCentro, depsCron, revisoes] = await Promise.all([
+  const [colabs, centros, calibracoes, oportunidades, metricasCentro, depsCron, revisoes] = await Promise.all([
     db.from('colaboradores').select('id, nome, funcao, empresa, vinculo, centro_id').eq('ativo', true).order('nome').then((r: any) => r.data ?? []),
     db.from('centros_custo').select('id, nome, tipo').eq('ativo', true).order('ordem').then((r: any) => r.data ?? []),
+    gestor ? db.from('modelo_calibracoes').select('modelo_id, motivo, origem, itens_afetados, custo_antes, custo_depois, criado_em').order('criado_em', { ascending: false }).limit(5).then((r: any) => r.data ?? []) : Promise.resolve([]),
     gestor ? db.from('oportunidades').select('id, codigo, titulo, cliente, origem, estagio, valor_estimado, probabilidade, prazo_proposta, data_decisao, motivo_perda').order('atualizado_em', { ascending: false }).limit(30).then((r: any) => r.data ?? []) : Promise.resolve([]),
     db.from('metricas_centro_total').select('*').then((r: any) => r.data ?? []),
     filtro(db.from('evento_dependencias').select('obra_id, evento_id, depende_de, tipo, folga_dias')).then((r: any) => r.data ?? []),
@@ -99,6 +100,12 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
       const atraso = o.prazo_proposta && o.prazo_proposta < hj && ['contato','premissas','orcamento'].includes(o.estagio);
       L.push(`  [${o.codigo}] ${o.titulo} — ${o.cliente} | ${o.estagio} (${o.probabilidade}%) | ${fmt(o.valor_estimado)}${o.prazo_proposta ? ` | proposta até ${dt(o.prazo_proposta)}${atraso ? ' ATRASADA' : ''}` : ''}${o.data_decisao ? ` | decide em ${dt(o.data_decisao)}` : ''}`);
     });
+    if (calibracoes.length) {
+      L.push('  Calibrações recentes do modelo de orçamento:');
+      calibracoes.forEach((c: any) => L.push(`    [${dt(String(c.criado_em).slice(0,10))}] ${c.motivo} — ${c.itens_afetados} item(ns), custo/m² ${fmt(c.custo_antes)} → ${fmt(c.custo_depois)}`));
+    } else {
+      L.push('  O modelo de orçamento NUNCA foi calibrado com custo real. Se houver etapa com compra aprovada, sugira calibrar em Comercial → Base de Preços — sem isso o erro de orçamento se repete.');
+    }
     const perdidas = oportunidades.filter((o: any) => o.estagio === 'perdida');
     const ganhas = oportunidades.filter((o: any) => o.estagio === 'assinada');
     if (ganhas.length || perdidas.length) {

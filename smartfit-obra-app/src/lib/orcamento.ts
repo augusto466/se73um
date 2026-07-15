@@ -193,3 +193,114 @@ export function compararComReal(
   }
   return alertas;
 }
+
+/* =====================================================================
+   CALIBRAÇÃO — como o modelo aprende com a obra real.
+
+   O modelo nasceu com os índices de uma obra. Isso é ponto de partida,
+   não verdade eterna. Cada obra executada tem custo real, e é ele que
+   corrige o modelo — senão um erro de orçamento se repete para sempre.
+   ===================================================================== */
+
+export type LinhaReal = {
+  etapa: string;
+  custo_orcado: number;
+  valor_comprado: number;
+  obra_id?: number;
+};
+
+export type PropostaCalibracao = {
+  item_id: number;
+  etapa: string;
+  descricao: string;
+  campo: 'custo_unitario' | 'indice';
+  de: number;
+  para: number;
+  variacao_pct: number;
+  fonte: string;
+};
+
+/**
+ * Compara o modelo com o custo executado e propõe correções.
+ *
+ * O fator é por ETAPA (é o nível em que o real é conhecido), aplicado ao
+ * custo unitário dos itens dela. Não mexe no índice: se a etapa custou 12%
+ * mais, o mais provável é que o preço estava defasado, não que a quantidade
+ * por m² mudou. Índice se corrige com medição física, não com nota fiscal.
+ */
+export function proporCalibracao(
+  itens: (ModeloItem & { id: number })[],
+  real: LinhaReal[],
+  opcoes: { minVariacao?: number; teto?: number } = {}
+): { propostas: PropostaCalibracao[]; ignoradas: string[] } {
+  const minVar = opcoes.minVariacao ?? 3;    // abaixo disso é ruído
+  const teto = opcoes.teto ?? 60;            // acima disso é erro de dado, não realidade
+  const propostas: PropostaCalibracao[] = [];
+  const ignoradas: string[] = [];
+
+  // fator por etapa, só onde há compra suficiente
+  const fatores = new Map<string, { fator: number; orc: number; cmp: number }>();
+  for (const r of real) {
+    if (!r.custo_orcado || !r.valor_comprado) continue;
+    const f = r.valor_comprado / r.custo_orcado;
+    const varPct = Math.abs((f - 1) * 100);
+    if (varPct < minVar) { ignoradas.push(`${r.etapa}: variação de ${varPct.toFixed(1)}% é ruído`); continue; }
+    if (varPct > teto) {
+      ignoradas.push(`${r.etapa}: variação de ${varPct.toFixed(0)}% é grande demais para ser real — confira o lançamento antes de calibrar`);
+      continue;
+    }
+    fatores.set(r.etapa.toUpperCase(), { fator: f, orc: r.custo_orcado, cmp: r.valor_comprado });
+  }
+
+  for (const it of itens) {
+    const chave = Array.from(fatores.keys()).find(k =>
+      k.includes(it.etapa.toUpperCase().slice(0, 8)) || it.etapa.toUpperCase().includes(k.slice(0, 8))
+    );
+    if (!chave) continue;
+    const { fator, orc, cmp } = fatores.get(chave)!;
+    const novo = Math.round(Number(it.custo_unitario) * fator * 10000) / 10000;
+    if (novo === Number(it.custo_unitario)) continue;
+    propostas.push({
+      item_id: it.id, etapa: it.etapa, descricao: it.descricao,
+      campo: 'custo_unitario',
+      de: Number(it.custo_unitario), para: novo,
+      variacao_pct: Math.round((fator - 1) * 1000) / 10,
+      fonte: `Etapa ${chave}: orçado ${brl(orc)}, comprado ${brl(cmp)}`,
+    });
+  }
+  return { propostas, ignoradas };
+}
+
+const brl = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+
+/**
+ * Deriva um modelo novo a partir de uma obra concluída.
+ * É o caminho para ter modelo de BTS, de estrutura avulsa etc: executa a
+ * primeira, e ela vira a receita da próxima.
+ */
+export function modeloDeObra(
+  itensObra: { etapa: string; descricao: string; unidade: string | null; quantidade: number; custo_unitario: number; bdi_pct?: number; codigo?: string | null }[],
+  ref: { area_projecao: number; area_laje?: number; prazo_meses?: number }
+): ModeloItem[] {
+  return itensObra.map((i, n) => {
+    // o driver se infere pela unidade e pela relação com as áreas
+    const un = (i.unidade ?? '').toUpperCase();
+    let driver: ModeloItem['driver'] = 'area_proj';
+    if (un === 'MES' || un === 'MÊS' || un === 'HORA') driver = 'prazo';
+    else if (ref.area_laje && Math.abs(i.quantidade - ref.area_laje) < 1) driver = 'area_laje';
+    else if (i.quantidade === 1 || i.quantidade === 2) driver = 'fixo';
+
+    const base = driver === 'area_laje' ? (ref.area_laje ?? ref.area_projecao)
+              : driver === 'prazo' ? (ref.prazo_meses ?? 1)
+              : driver === 'fixo' ? 1
+              : ref.area_projecao;
+
+    return {
+      ordem: n * 10, etapa: i.etapa, subetapa: null, indice_item: null,
+      codigo: i.codigo ?? null, base_id: null,
+      descricao: i.descricao, unidade: i.unidade, tipo: 'composicao',
+      driver, indice: base > 0 ? Math.round((i.quantidade / base) * 1e6) / 1e6 : 0,
+      custo_unitario: i.custo_unitario, bdi_pct: i.bdi_pct ?? 0.25,
+    };
+  });
+}

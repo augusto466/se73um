@@ -13,6 +13,9 @@ export default function OportunidadeClient({ op, premissasIniciais, modelos, pro
   const [alertas, setAlertas] = useState<any[]>([]);
   const [ocupado, setOcupado] = useState(false);
   const [verItens, setVerItens] = useState(false);
+  const [itens, setItens] = useState(itensProposta);
+  const [editando, setEditando] = useState<number | null>(null);
+  const [edicao, setEdicao] = useState<any>({});
   const supabase = supabaseBrowser();
 
   const ultima = propostas[0];
@@ -57,6 +60,41 @@ export default function OportunidadeClient({ op, premissasIniciais, modelos, pro
       setSim(j.orcamento);
       setAlertas(j.alertas_historico ?? []);
       if (gravar) { alert(`Proposta R${String(j.proposta.versao).padStart(2,'0')} criada.`); location.reload(); }
+    } catch (e: any) { alert('Falha: ' + e.message); }
+    setOcupado(false);
+  }
+
+  async function salvarItem(item: any) {
+    setOcupado(true);
+    try {
+      const r = await fetch('/api/comercial/base', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_id: item.id,
+          quantidade: edicao.quantidade !== undefined ? Number(edicao.quantidade) : undefined,
+          custo_unitario: edicao.custo_unitario !== undefined ? Number(edicao.custo_unitario) : undefined,
+          bdi_pct: edicao.bdi_pct !== undefined ? Number(edicao.bdi_pct) / 100 : undefined,
+        }),
+      });
+      const j = await r.json();
+      if (j.erro) { alert(j.erro); setOcupado(false); return; }
+      setEditando(null); setEdicao({});
+      location.reload();
+    } catch (e: any) { alert('Falha: ' + e.message); }
+    setOcupado(false);
+  }
+
+  async function removerItem(item: any) {
+    if (!confirm(`Remover "${item.descricao.slice(0, 60)}" da proposta?`)) return;
+    setOcupado(true);
+    try {
+      const r = await fetch('/api/comercial/base', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: item.id, remover: true }),
+      });
+      const j = await r.json();
+      if (j.erro) { alert(j.erro); setOcupado(false); return; }
+      setItens(l => l.filter((x: any) => x.id !== item.id));
     } catch (e: any) { alert('Falha: ' + e.message); }
     setOcupado(false);
   }
@@ -206,26 +244,65 @@ export default function OportunidadeClient({ op, premissasIniciais, modelos, pro
               </tbody>
             </table>
 
-            {itensProposta.length > 0 && (
+            {itens.length > 0 && (
               <>
                 <button className="mini" style={{ marginTop: 10 }} onClick={() => setVerItens(v => !v)}>
-                  {verItens ? 'ocultar' : `ver os ${itensProposta.length} itens`}
+                  {verItens ? 'ocultar' : `ver os ${itens.length} itens`}
                 </button>
                 {verItens && (
                   <div style={{ overflowX: 'auto', marginTop: 8 }}>
+                    <p className="hint" style={{ marginBottom: 6 }}>
+                      O motor propõe; você ajusta. Clique em <b>editar</b> para mudar quantidade, custo ou BDI de um item.
+                      {ultima.status === 'aceita' && ' Proposta aceita não se edita — crie uma nova versão.'}
+                    </p>
                     <table className="tab">
-                      <thead><tr><th>Item</th><th>Descrição</th><th>Un</th><th style={{ textAlign: 'right' }}>Qtde</th><th style={{ textAlign: 'right' }}>Custo un.</th><th style={{ textAlign: 'right' }}>Preço total</th></tr></thead>
+                      <thead><tr><th>Item</th><th>Descrição</th><th>Un</th><th style={{ textAlign: 'right' }}>Qtde</th><th style={{ textAlign: 'right' }}>Custo un.</th><th style={{ textAlign: 'right' }}>BDI</th><th style={{ textAlign: 'right' }}>Preço total</th><th></th></tr></thead>
                       <tbody>
-                        {itensProposta.map((i: any) => (
-                          <tr key={i.id}>
-                            <td><span className="hint">{i.indice_item}</span></td>
-                            <td style={{ maxWidth: 340 }}>{i.descricao}</td>
-                            <td>{i.unidade}</td>
-                            <td style={{ textAlign: 'right' }}>{Number(i.quantidade).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</td>
-                            <td style={{ textAlign: 'right' }}>{fmtBRL(i.custo_unitario)}</td>
-                            <td style={{ textAlign: 'right' }}>{fmtBRL(i.preco_total)}</td>
-                          </tr>
-                        ))}
+                        {itens.map((i: any) => {
+                          const emEdicao = editando === i.id;
+                          const ajustado = i.origem === 'ajustado';
+                          return (
+                            <tr key={i.id} style={ajustado ? { background: 'var(--brand-soft)' } : undefined}>
+                              <td><span className="hint">{i.indice_item}</span></td>
+                              <td style={{ maxWidth: 300 }}>{i.descricao}
+                                {ajustado && <div className="hint" style={{ color: 'var(--brand)' }}>ajustado à mão</div>}</td>
+                              <td>{i.unidade}</td>
+                              <td style={{ textAlign: 'right' }}>
+                                {emEdicao
+                                  ? <input type="number" step="0.01" defaultValue={i.quantidade}
+                                      onChange={e => setEdicao({ ...edicao, quantidade: e.target.value })}
+                                      style={{ width: 90, padding: '3px 5px', fontSize: 11, textAlign: 'right' }} />
+                                  : Number(i.quantidade).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                {emEdicao
+                                  ? <input type="number" step="0.01" defaultValue={i.custo_unitario}
+                                      onChange={e => setEdicao({ ...edicao, custo_unitario: e.target.value })}
+                                      style={{ width: 90, padding: '3px 5px', fontSize: 11, textAlign: 'right' }} />
+                                  : fmtBRL(i.custo_unitario)}
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                {emEdicao
+                                  ? <input type="number" step="1" defaultValue={(Number(i.bdi_pct) * 100).toFixed(0)}
+                                      onChange={e => setEdicao({ ...edicao, bdi_pct: e.target.value })}
+                                      style={{ width: 55, padding: '3px 5px', fontSize: 11, textAlign: 'right' }} />
+                                  : <span className="hint">{(Number(i.bdi_pct) * 100).toFixed(0)}%</span>}
+                              </td>
+                              <td style={{ textAlign: 'right' }}><b>{fmtBRL(i.preco_total)}</b></td>
+                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                {ultima.status !== 'aceita' && (emEdicao
+                                  ? <>
+                                      <button className="mini" disabled={ocupado} onClick={() => salvarItem(i)}>salvar</button>
+                                      <button className="mini" onClick={() => { setEditando(null); setEdicao({}); }}>✕</button>
+                                    </>
+                                  : <>
+                                      <button className="mini" onClick={() => { setEditando(i.id); setEdicao({}); }}>editar</button>
+                                      <button className="mini" onClick={() => removerItem(i)}>✕</button>
+                                    </>)}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
