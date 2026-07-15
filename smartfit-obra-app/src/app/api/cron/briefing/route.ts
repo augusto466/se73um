@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { montarContexto } from '@/lib/contexto';
+import { MODELO, ESFORCO, cacheBreakpoint, logUso } from '@/lib/ia';
 
 export const maxDuration = 300;
 
@@ -64,15 +65,18 @@ export async function GET(req: Request) {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
+          model: MODELO,
           max_tokens: 800,
-          system: SISTEMA_BRIEFING,
+          effort: ESFORCO,
+          // o cron roda vários usuários em sequência: o system fica cacheado entre eles
+          system: [{ type: 'text', text: SISTEMA_BRIEFING, cache_control: cacheBreakpoint }],
           messages: [{ role: 'user', content: prompt }],
         }),
       });
       if (!r.ok) { resultados.push({ usuario: p.nome, erro: `API ${r.status}` }); continue; }
 
       const data = await r.json();
+      logUso('briefing', data.usage);
       const conteudo = (data.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n').trim();
       if (!conteudo) { resultados.push({ usuario: p.nome, erro: 'resposta vazia' }); continue; }
 

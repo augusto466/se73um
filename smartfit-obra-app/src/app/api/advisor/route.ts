@@ -1,6 +1,7 @@
 import { supabaseServer, supabaseAdmin } from '@/lib/supabase/server';
 import { montarContexto } from '@/lib/contexto';
 import { simular, impactoEmTexto, type EventoCron, type Dependencia } from '@/lib/replanejamento';
+import { MODELO, ESFORCO, cacheBreakpoint, montarSystem, logUso } from '@/lib/ia';
 
 export const maxDuration = 60;
 
@@ -191,6 +192,8 @@ const FERRAMENTAS = [
       },
       required: ['pedido_id'],
     },
+    // breakpoint na última ferramenta: todas entram no prefixo cacheado
+    cache_control: cacheBreakpoint,
   },
   {
     name: 'criar_rotina',
@@ -371,7 +374,11 @@ export async function POST(req: Request) {
   } catch (e: any) {
     return Response.json({ erro: 'Falha ao ler os dados: ' + e.message }, { status: 500 });
   }
-  const system = `${SISTEMA}\n\nQuem pergunta: ${perfil?.nome ?? 'usuário'} (perfil ${papel}).\n\n===================== RETRATO ATUAL DA EMPRESA =====================\n${retrato}\n====================================================================`;
+  // O que é estável fica no bloco cacheado; o retrato (dados vivos) fica fora.
+  const system = montarSystem(
+    SISTEMA,
+    `Quem pergunta: ${perfil?.nome ?? 'usuário'} (perfil ${papel}).\n\n===================== RETRATO ATUAL DA EMPRESA =====================\n${retrato}\n====================================================================`
+  );
 
   // ---- monta as mensagens da API (histórico em texto; anexos só na última)
   const blocosUltima: any[] = [];
@@ -407,8 +414,9 @@ export async function POST(req: Request) {
               'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({
-              model: 'claude-sonnet-4-6',
+              model: MODELO,
               max_tokens: 2000,
+              effort: ESFORCO,
               system,
               tools: FERRAMENTAS,
               stream: true,
@@ -418,7 +426,11 @@ export async function POST(req: Request) {
 
           if (!r.ok || !r.body) {
             const t = await r.text();
-            emitir({ t: 'erro', v: `API retornou ${r.status}. ${t.slice(0, 200)}` });
+            // 404 em modelo costuma ser nome errado: diz onde arrumar em vez de morrer calado
+            const dica = r.status === 404 && t.includes('model')
+              ? ` O modelo "${MODELO}" não foi aceito pela API. Ajuste a variável ADVISOR_MODELO na Vercel.`
+              : '';
+            emitir({ t: 'erro', v: `API retornou ${r.status}.${dica} ${t.slice(0, 200)}` });
             break;
           }
 
@@ -458,6 +470,8 @@ export async function POST(req: Request) {
               } else if (ev.type === 'content_block_stop') {
                 if (atual) blocos.push(atual);
                 atual = null;
+              } else if (ev.type === 'message_start') {
+                if (ev.message?.usage) logUso('chat', ev.message.usage);
               } else if (ev.type === 'message_delta') {
                 if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
               }
