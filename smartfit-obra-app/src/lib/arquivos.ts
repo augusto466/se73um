@@ -50,6 +50,20 @@ export async function apagarArquivo(path: string) {
   await supabase.storage.from(BUCKET).remove([path]);
 }
 
+/**
+ * Dispara a extração de texto do arquivo para o advisor conseguir buscar no acervo.
+ * Fire-and-forget: falha de indexação nunca atrapalha o upload.
+ */
+export function indexarNoAcervo(origem: 'projeto' | 'documento' | 'anexo', id: number | string) {
+  try {
+    fetch('/api/acervo/indexar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ origem, id }),
+    }).catch(() => {});
+  } catch {}
+}
+
 /** Situação da validade de um documento. */
 export function validadeSit(validade?: string | null) {
   if (!validade) return { rotulo: 'sem validade', cls: 'st-pend', dias: null as number | null };

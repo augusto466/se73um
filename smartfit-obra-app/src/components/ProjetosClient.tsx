@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { fmtData } from '@/lib/contrato';
-import { DISCIPLINAS, subirArquivo, baixarArquivo, apagarArquivo, fmtTamanho } from '@/lib/arquivos';
+import { DISCIPLINAS, subirArquivo, baixarArquivo, apagarArquivo, fmtTamanho, indexarNoAcervo } from '@/lib/arquivos';
 
 export default function ProjetosClient({ projetosIniciais, obraId, papel }:
   { projetosIniciais: any[]; obraId: number; papel: string }) {
@@ -49,6 +49,7 @@ export default function ProjetosClient({ projetosIniciais, obraId, papel }:
         vigente: true, criado_por: user?.id,
       }).select().single();
       if (error) throw new Error(error.message);
+      indexarNoAcervo('projeto', data.id);
       // recarrega para refletir o trigger que obsoleta as anteriores
       const { data: todos } = await supabase.from('projetos').select('*').eq('obra_id', obraId)
         .order('disciplina').order('codigo').order('criado_em', { ascending: false });

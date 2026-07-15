@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
-import { subirArquivo, baixarArquivo, apagarArquivo, fmtTamanho } from '@/lib/arquivos';
+import { subirArquivo, baixarArquivo, apagarArquivo, fmtTamanho, indexarNoAcervo } from '@/lib/arquivos';
 
 export default function Anexos({ entidade, entidadeId, obraId, compacto }:
   { entidade: string; entidadeId: string; obraId: number | null; compacto?: boolean }) {
@@ -28,6 +28,7 @@ export default function Anexos({ entidade, entidadeId, obraId, compacto }:
           criado_por: user?.id,
         }).select().single();
         if (error) throw new Error(error.message);
+        indexarNoAcervo('anexo', data.id);
         setLista(l => [...l, data]);
       }
     } catch (err: any) { alert(err.message); }

@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { fmtData } from '@/lib/contrato';
-import { TIPOS_DOC, subirArquivo, baixarArquivo, apagarArquivo, fmtTamanho, validadeSit } from '@/lib/arquivos';
+import { TIPOS_DOC, subirArquivo, baixarArquivo, apagarArquivo, fmtTamanho, validadeSit, indexarNoAcervo } from '@/lib/arquivos';
 
 export default function DocumentosClient({ docsIniciais, obras, papel }:
   { docsIniciais: any[]; obras: any[]; papel: string }) {
@@ -40,6 +40,7 @@ export default function DocumentosClient({ docsIniciais, obras, papel }:
         criado_por: user?.id,
       }).select().single();
       if (error) throw new Error(error.message);
+      if (up) indexarNoAcervo('documento', data.id);
       setDocs(d => [...d, data]);
       setF({ ...f, titulo: '', emissor: '', numero: '', emissao: '', validade: '', observacoes: '' });
       setArquivo(null); setNovo(false);
@@ -55,6 +56,7 @@ export default function DocumentosClient({ docsIniciais, obras, papel }:
         arquivo_path: up.path, arquivo_nome: up.nome, arquivo_tamanho: up.tamanho,
       }).eq('id', d.id);
       if (error) throw new Error(error.message);
+      indexarNoAcervo('documento', d.id);
       setDocs(ds => ds.map(x => x.id === d.id ? { ...x, arquivo_path: up.path, arquivo_nome: up.nome, arquivo_tamanho: up.tamanho } : x));
     } catch (e: any) { alert(e.message); }
     setOcupado(false);
@@ -96,7 +98,30 @@ export default function DocumentosClient({ docsIniciais, obras, papel }:
       <div className="panel">
         <div className="hd">
           <h3>Documentos contratuais e de regularidade</h3>
-          <button className="btn" onClick={() => setNovo(n => !n)}>{novo ? 'Fechar' : '+ Novo documento'}</button>
+          <div style={{ display: 'flex', gap: 7 }}>
+            {ehAdmin && (
+              <button className="mini" disabled={ocupado} title="Extrai o texto dos arquivos antigos para o advisor conseguir buscar no acervo"
+                onClick={async () => {
+                  setOcupado(true);
+                  try {
+                    let total = 0, rodadas = 0;
+                    while (rodadas < 10) {
+                      const r = await fetch('/api/acervo/indexar', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tudo: true }),
+                      });
+                      const j = await r.json();
+                      if (j.erro) throw new Error(j.erro);
+                      total += j.processados ?? 0; rodadas++;
+                      if (!j.restantes) break;
+                    }
+                    alert(`Indexação concluída: ${total} arquivo(s) processado(s). O advisor já consegue buscar no acervo.`);
+                  } catch (e: any) { alert('Falha na indexação: ' + e.message); }
+                  setOcupado(false);
+                }}>⟳ Indexar acervo</button>
+            )}
+            <button className="btn" onClick={() => setNovo(n => !n)}>{novo ? 'Fechar' : '+ Novo documento'}</button>
+          </div>
         </div>
 
         {novo && (

@@ -1,21 +1,21 @@
-import { NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase/server';
+import { supabaseServer, supabaseAdmin } from '@/lib/supabase/server';
 import { montarContexto } from '@/lib/contexto';
 
 export const maxDuration = 60;
 
-const SISTEMA = `Você é o advisor da Se73um — um conselheiro sênior de gestão para o CEO de uma construtora que executa obras Turn Key / Build to Suit.
+const SISTEMA = `Você é o advisor da Se73um — um conselheiro sênior de gestão para quem opera obras Turn Key / Build to Suit.
 
 CONTEXTO HUMANO IMPORTANTE:
 A empresa passa por uma reestruturação com redução de mais de 80% do efetivo. O CEO absorveu quase todos os departamentos e opera com pouquíssimos colaboradores. Ele está sobrecarregado, mas encara isso como oportunidade de colocar a casa nos trilhos. Ele não precisa de motivação — precisa de clareza e de foco no que move o ponteiro.
 
 COMO VOCÊ RESPONDE:
 - Fale com os NÚMEROS REAIS do retrato abaixo. Nunca dê conselho genérico de manual de gestão.
-- Vá direto ao ponto. Ele tem pouco tempo. Prefira 3 frases certeiras a 3 parágrafos.
+- Vá direto ao ponto. Prefira 3 frases certeiras a 3 parágrafos.
 - Quando recomendar algo, diga O QUE fazer, ONDE no sistema, e QUAL o impacto esperado.
 - Se o dado não existir no retrato, diga que não tem base — não invente número, não estime sem avisar.
-- Priorize sempre: margem > caixa > prazo > decisão travada. É a hierarquia que ele mesmo definiu.
-- Quando ele pedir sua opinião, dê. Discorde se os dados apontarem outra coisa. Ele quer um conselheiro, não um bajulador.
+- Priorize sempre: margem > caixa > prazo > decisão travada.
+- Quando pedirem sua opinião, dê. Discorde se os dados apontarem outra coisa. Você é conselheiro, não bajulador.
+- Respeite as DECISÕES JÁ TOMADAS listadas no retrato: não sugira de novo o que já foi decidido ou descartado.
 - Nunca invente cláusula contratual. As que você conhece deste contrato (TK-328/2026, Invest Market × Modo Modular):
   Cl. 3.2 pagamento em 15 dias após validação da NF · Cl. 3.3 glosa com fundamentação técnica
   Cl. 3.4 documentos obrigatórios da medição · Cl. 3.4.1 aprovar medição não é aceitação definitiva
@@ -25,69 +25,290 @@ COMO VOCÊ RESPONDE:
   Cl. 8.2 atraso > 15 dias em etapa crítica autoriza rescisão + multa 20% · Cl. 10.2 garantia 5 anos
   Cl. 13.1.1 seguro garantia 10% · Cl. 13.2 documentos de regularidade · Cl. 13.3 documento irregular autoriza reter medição
   Cl. 17.1 comunicação formal por escrito
+
+SUAS FERRAMENTAS:
+- buscar_acervo: pesquisa nos projetos, documentos e anexos do GED. Use quando a pergunta envolver o conteúdo de um documento, memorial, projeto ou contrato anexado. Se a busca não retornar nada, diga que não encontrou no acervo.
+- criar_tarefa, criar_rotina, registrar_decisao: PROPÕEM uma ação — o usuário confirma num cartão antes de executar. Use quando a conversa levar naturalmente a uma ação concreta, ou quando o usuário disser que decidiu algo (registre a decisão). Nunca proponha mais de 3 ações por resposta.
+- Minutas de comunicação formal (Cl. 17.1): escreva o texto diretamente na resposta, pronto para copiar, com campos [ENTRE COLCHETES] para o que você não souber.
+
 - Tom: direto, respeitoso, sem bajulação e sem jargão de consultoria. Português do Brasil.
 - Formate com quebras de linha e listas curtas quando ajudar a leitura. Sem markdown pesado.`;
+
+const FERRAMENTAS = [
+  {
+    name: 'buscar_acervo',
+    description: 'Busca full-text nos textos extraídos de projetos, documentos contratuais e anexos do GED. Retorna trechos relevantes com a fonte.',
+    input_schema: {
+      type: 'object',
+      properties: { consulta: { type: 'string', description: 'Termos de busca em português, ex.: "piso industrial fck"' } },
+      required: ['consulta'],
+    },
+  },
+  {
+    name: 'criar_tarefa',
+    description: 'Propõe criar uma tarefa no quadro. O usuário confirma antes de executar.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        descricao: { type: 'string' },
+        prazo: { type: 'string', description: 'Data AAAA-MM-DD (opcional)' },
+        prioridade: { type: 'string', enum: ['alta', 'media', 'baixa'] },
+        obra_id: { type: 'number', description: 'ID da obra, se aplicável' },
+      },
+      required: ['descricao'],
+    },
+  },
+  {
+    name: 'criar_rotina',
+    description: 'Propõe criar uma rotina recorrente. O usuário confirma antes de executar.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        titulo: { type: 'string' },
+        detalhe: { type: 'string' },
+        frequencia: { type: 'string', enum: ['diaria', 'semanal', 'quinzenal', 'mensal', 'trimestral'] },
+        dia_semana: { type: 'number', description: '0=domingo … 6=sábado (semanal/quinzenal)' },
+        dia_mes: { type: 'number', description: '1 a 28 (mensal/trimestral)' },
+        prioridade: { type: 'string', enum: ['alta', 'media', 'baixa'] },
+        obra_id: { type: 'number' },
+      },
+      required: ['titulo', 'frequencia'],
+    },
+  },
+  {
+    name: 'registrar_decisao',
+    description: 'Propõe registrar uma decisão tomada pelo usuário, para que o advisor a respeite daqui em diante. O usuário confirma antes de executar.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        titulo: { type: 'string', description: 'A decisão, em uma frase' },
+        detalhe: { type: 'string', description: 'Contexto e justificativa' },
+        obra_id: { type: 'number' },
+      },
+      required: ['titulo'],
+    },
+  },
+];
+
+function rotuloAcao(tool: string, input: any) {
+  if (tool === 'criar_tarefa') return `Criar tarefa: ${input.descricao}${input.prazo ? ` (prazo ${input.prazo})` : ''}`;
+  if (tool === 'criar_rotina') return `Criar rotina ${input.frequencia}: ${input.titulo}`;
+  if (tool === 'registrar_decisao') return `Registrar decisão: ${input.titulo}`;
+  return tool;
+}
+
+/** Executa a busca no acervo respeitando as obras do usuário. */
+async function executarBusca(consulta: string, papel: string, obras: number[]) {
+  const admin = supabaseAdmin();
+  const { data, error } = await admin.rpc('buscar_acervo', {
+    q: consulta, p_obras: obras, p_todas: papel === 'admin',
+  });
+  if (error) return `Erro na busca: ${error.message}`;
+  if (!data?.length) return 'Nenhum resultado no acervo para essa consulta. O documento pode não estar indexado (a indexação acontece no upload; arquivos antigos precisam de reindexação em Documentos → Indexar acervo).';
+  const ORIG: any = { projeto: 'Projeto', documento: 'Documento', anexo: 'Anexo' };
+  return data.map((r: any) =>
+    `[${ORIG[r.origem] ?? r.origem} #${r.origem_id}] "${r.titulo}"${r.obra_id ? ` (obra ${r.obra_id})` : ' (empresa)'}\n${String(r.trecho).replace(/>>/g, '«').replace(/<</g, '»')}`
+  ).join('\n\n');
+}
 
 export async function POST(req: Request) {
   const supa = supabaseServer();
   const { data: { user } } = await supa.auth.getUser();
-  if (!user) return NextResponse.json({ erro: 'Não autenticado.' }, { status: 401 });
+  if (!user) return Response.json({ erro: 'Não autenticado.' }, { status: 401 });
 
   const { data: perfil } = await supa.from('profiles').select('papel, nome').eq('id', user.id).single();
   const { data: vinculos } = await supa.from('obra_usuarios').select('obra_id').eq('usuario_id', user.id);
   const obrasPermitidas = (vinculos ?? []).map((v: any) => v.obra_id);
+  const papel = perfil?.papel ?? 'contratada';
 
-  const { mensagens } = await req.json();
+  const corpo = await req.json();
+  const mensagens: { role: string; content: string }[] = corpo.mensagens ?? [];
+  const anexos: { tipo: string; nome: string; media_type?: string; dados: string }[] = corpo.anexos ?? [];
+  let conversaId: number | null = corpo.conversa_id ?? null;
+
   if (!Array.isArray(mensagens) || !mensagens.length) {
-    return NextResponse.json({ erro: 'Nenhuma mensagem.' }, { status: 400 });
+    return Response.json({ erro: 'Nenhuma mensagem.' }, { status: 400 });
   }
-
   if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({
-      erro: 'O advisor precisa da chave da API configurada. Adicione ANTHROPIC_API_KEY nas variáveis de ambiente da Vercel (console.anthropic.com → API Keys).',
+    return Response.json({
+      erro: 'O advisor precisa da chave da API configurada. Adicione ANTHROPIC_API_KEY nas variáveis de ambiente da Vercel.',
     }, { status: 503 });
   }
 
+  const admin = supabaseAdmin();
+  const ultima = mensagens[mensagens.length - 1];
+
+  // ---- persistência: garante a conversa e grava a pergunta
+  if (conversaId) {
+    const { data: dona } = await admin.from('advisor_conversas').select('usuario_id').eq('id', conversaId).single();
+    if (!dona || dona.usuario_id !== user.id) conversaId = null;
+  }
+  if (!conversaId) {
+    const { data: nova } = await admin.from('advisor_conversas')
+      .insert({ usuario_id: user.id, titulo: String(ultima.content).slice(0, 70) })
+      .select('id').single();
+    conversaId = nova?.id ?? null;
+  }
+  const notaAnexos = anexos.length ? ` [anexos: ${anexos.map(a => a.nome).join(', ')}]` : '';
+  if (conversaId) {
+    await admin.from('advisor_mensagens').insert({
+      conversa_id: conversaId, role: 'user', content: String(ultima.content) + notaAnexos,
+    });
+  }
+
+  // ---- retrato + system
   let retrato: string;
   try {
-    retrato = await montarContexto(perfil?.papel ?? 'contratada', obrasPermitidas);
+    retrato = await montarContexto(papel, obrasPermitidas, user.id);
   } catch (e: any) {
-    return NextResponse.json({ erro: 'Falha ao ler os dados: ' + e.message }, { status: 500 });
+    return Response.json({ erro: 'Falha ao ler os dados: ' + e.message }, { status: 500 });
   }
+  const system = `${SISTEMA}\n\nQuem pergunta: ${perfil?.nome ?? 'usuário'} (perfil ${papel}).\n\n===================== RETRATO ATUAL DA EMPRESA =====================\n${retrato}\n====================================================================`;
 
-  const system = `${SISTEMA}
-
-Quem pergunta: ${perfil?.nome ?? 'usuário'} (perfil ${perfil?.papel}).
-
-===================== RETRATO ATUAL DA EMPRESA =====================
-${retrato}
-====================================================================`;
-
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1600,
-        system,
-        messages: mensagens.slice(-10).map((m: any) => ({ role: m.role, content: m.content })),
-      }),
-    });
-
-    if (!r.ok) {
-      const t = await r.text();
-      return NextResponse.json({ erro: `API retornou ${r.status}. ${t.slice(0, 200)}` }, { status: 502 });
-    }
-
-    const data = await r.json();
-    const texto = (data.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n');
-    return NextResponse.json({ resposta: texto });
-  } catch (e: any) {
-    return NextResponse.json({ erro: 'Falha na consulta: ' + e.message }, { status: 500 });
+  // ---- monta as mensagens da API (histórico em texto; anexos só na última)
+  const blocosUltima: any[] = [];
+  for (const a of anexos.slice(0, 4)) {
+    if (a.tipo === 'pdf') blocosUltima.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.dados } });
+    else if (a.tipo === 'imagem') blocosUltima.push({ type: 'image', source: { type: 'base64', media_type: a.media_type || 'image/jpeg', data: a.dados } });
+    else if (a.tipo === 'texto') blocosUltima.push({ type: 'text', text: `Conteúdo do arquivo "${a.nome}":\n\n${a.dados.slice(0, 60000)}` });
   }
+  blocosUltima.push({ type: 'text', text: String(ultima.content) });
+
+  const apiMsgs: any[] = [
+    ...mensagens.slice(-10, -1).map(m => ({ role: m.role, content: String(m.content) })),
+    { role: 'user', content: blocosUltima },
+  ];
+
+  // ---- stream para o cliente (linhas JSON)
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const emitir = (obj: any) => controller.enqueue(enc.encode(JSON.stringify(obj) + '\n'));
+      emitir({ t: 'meta', conversa_id: conversaId });
+
+      let textoFinal = '';
+      const acoesPropostas: any[] = [];
+
+      try {
+        for (let rodada = 0; rodada < 4; rodada++) {
+          const r = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'x-api-key': process.env.ANTHROPIC_API_KEY!,
+              'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-6',
+              max_tokens: 2000,
+              system,
+              tools: FERRAMENTAS,
+              stream: true,
+              messages: apiMsgs,
+            }),
+          });
+
+          if (!r.ok || !r.body) {
+            const t = await r.text();
+            emitir({ t: 'erro', v: `API retornou ${r.status}. ${t.slice(0, 200)}` });
+            break;
+          }
+
+          // ---- parse do SSE da Anthropic
+          const blocos: any[] = [];
+          let atual: any = null;
+          let stopReason = '';
+          const reader = r.body.getReader();
+          const dec = new TextDecoder();
+          let buf = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const linhas = buf.split('\n');
+            buf = linhas.pop() ?? '';
+            for (const linha of linhas) {
+              if (!linha.startsWith('data:')) continue;
+              const payload = linha.slice(5).trim();
+              if (!payload || payload === '[DONE]') continue;
+              let ev: any;
+              try { ev = JSON.parse(payload); } catch { continue; }
+
+              if (ev.type === 'content_block_start') {
+                atual = ev.content_block.type === 'tool_use'
+                  ? { type: 'tool_use', id: ev.content_block.id, name: ev.content_block.name, json: '' }
+                  : { type: 'text', text: '' };
+              } else if (ev.type === 'content_block_delta') {
+                if (ev.delta?.type === 'text_delta' && atual?.type === 'text') {
+                  atual.text += ev.delta.text;
+                  textoFinal += ev.delta.text;
+                  emitir({ t: 'txt', v: ev.delta.text });
+                } else if (ev.delta?.type === 'input_json_delta' && atual?.type === 'tool_use') {
+                  atual.json += ev.delta.partial_json;
+                }
+              } else if (ev.type === 'content_block_stop') {
+                if (atual) blocos.push(atual);
+                atual = null;
+              } else if (ev.type === 'message_delta') {
+                if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
+              }
+            }
+          }
+
+          // ---- se não pediu ferramenta, terminou
+          const usos = blocos.filter(b => b.type === 'tool_use');
+          if (stopReason !== 'tool_use' || !usos.length) break;
+
+          // reconstrói o turno do assistente para continuar a conversa com a API
+          const conteudoAssistente = blocos.map(b =>
+            b.type === 'text'
+              ? { type: 'text', text: b.text }
+              : { type: 'tool_use', id: b.id, name: b.name, input: JSON.parse(b.json || '{}') }
+          ).filter((b: any) => b.type !== 'text' || b.text.trim());
+          apiMsgs.push({ role: 'assistant', content: conteudoAssistente });
+
+          const resultados: any[] = [];
+          for (const u of usos) {
+            let input: any = {};
+            try { input = JSON.parse(u.json || '{}'); } catch {}
+
+            if (u.name === 'buscar_acervo') {
+              emitir({ t: 'busca', v: input.consulta ?? '' });
+              const res = await executarBusca(String(input.consulta ?? ''), papel, obrasPermitidas);
+              resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
+            } else {
+              const acao = { id: `${Date.now()}_${acoesPropostas.length}`, tool: u.name, input, rotulo: rotuloAcao(u.name, input), status: 'pendente' };
+              acoesPropostas.push(acao);
+              emitir({ t: 'acao', v: acao });
+              resultados.push({
+                type: 'tool_result', tool_use_id: u.id,
+                content: 'Proposta apresentada ao usuário num cartão de confirmação. Não está executada. Conclua sua resposta em texto sem repetir os detalhes da ação.',
+              });
+            }
+          }
+          apiMsgs.push({ role: 'user', content: resultados });
+        }
+      } catch (e: any) {
+        emitir({ t: 'erro', v: 'Falha na consulta: ' + e.message });
+      }
+
+      // ---- grava a resposta na conversa
+      if (conversaId && (textoFinal || acoesPropostas.length)) {
+        await admin.from('advisor_mensagens').insert({
+          conversa_id: conversaId, role: 'assistant',
+          content: textoFinal || '(propôs uma ação)',
+          acoes: acoesPropostas.length ? acoesPropostas : null,
+        });
+        await admin.from('advisor_conversas').update({ atualizado_em: new Date().toISOString() }).eq('id', conversaId);
+      }
+
+      emitir({ t: 'fim' });
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-cache' },
+  });
 }

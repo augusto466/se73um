@@ -13,10 +13,11 @@ const TIPO_INFO: Record<string, { rotulo: string; cor: string; href: string }> =
   documento:  { rotulo: 'DOCUMENTO',  cor: 'st-risk',  href: '/documentos' },
 };
 
-export default function MeuDiaClient({ itens, obras, perfil }: { itens: any[]; obras: any[]; perfil: any }) {
+export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens: any[]; obras: any[]; perfil: any; briefing?: any }) {
   const [lista, setLista] = useState(itens);
   const [ocupado, setOcupado] = useState(false);
   const [verAdiante, setVerAdiante] = useState(false);
+  const [briefAberto, setBriefAberto] = useState(briefing ? !briefing.lido : false);
   const supabase = supabaseBrowser();
   const hoje = new Date().toISOString().slice(0, 10);
   const em7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
@@ -118,6 +119,22 @@ export default function MeuDiaClient({ itens, obras, perfil }: { itens: any[]; o
           <div className="it"><div className="n">{grupos.semana.length}</div><div className="l">Próx. 7 dias</div></div>
         </div>
       </section>
+
+      {briefing && (
+        <div className="panel adv-brief">
+          <div className="hd" style={{ cursor: 'pointer' }} onClick={async () => {
+            const abrindo = !briefAberto;
+            setBriefAberto(abrindo);
+            if (abrindo && !briefing.lido) { briefing.lido = true; await supabase.from('advisor_briefings').update({ lido: true }).eq('id', briefing.id); }
+          }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="adv-brief-dot" /> Briefing do advisor · {fmtData(briefing.data)}
+            </h3>
+            <span className="hint">{briefAberto ? 'recolher' : (briefing.lido ? 'abrir' : 'novo · abrir')}</span>
+          </div>
+          {briefAberto && <div className="bd adv-brief-txt">{briefing.conteudo}</div>}
+        </div>
+      )}
 
       <div>
         <Bloco titulo="⚠ Atrasado" itens={grupos.atrasado} destaque="var(--risk)" />

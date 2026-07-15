@@ -287,3 +287,21 @@ label.mini{cursor:pointer}
 .adv-ft textarea{flex:1;border:1px solid var(--line-strong);border-radius:8px;padding:9px 10px;resize:none;font-size:13px;background:var(--surface)}
 .adv-ft textarea:focus{border-color:var(--brand);outline:none}
 .adv-ft .btn{padding:9px 13px;font-size:15px;line-height:1}
+
+/* ---------- advisor: ações, histórico, anexos, briefing ---------- */
+.adv-acao{margin-top:7px;border:1px dashed var(--line-strong);border-left:3px solid var(--brand);border-radius:9px;padding:9px 11px;background:var(--surface-2);display:flex;flex-direction:column;gap:7px}
+.adv-acao.executada{border-left-color:#2e9e5b;border-style:solid}
+.adv-acao.descartada{opacity:.55;border-left-color:var(--line-strong)}
+.adv-acao-r{font-size:12.5px;font-weight:600}
+.adv-acao-ok{padding:6px 12px;font-size:12px}
+.adv-hist{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.adv-hist-t{flex:1;display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:12.5px;transition:border-color .12s}
+.adv-hist-t:hover{border-color:var(--brand)}
+.adv-hist-t span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adv-anexos{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+.adv-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:3px 8px}
+.adv-chip button{font-size:10px;color:var(--gray)}
+.adv-clip{cursor:pointer;padding:9px 10px;align-self:flex-end}
+.adv-brief{border-left:3px solid var(--brand)}
+.adv-brief-dot{width:7px;height:7px;border-radius:99px;background:var(--brand);display:inline-block}
+.adv-brief-txt{font-size:13.5px;line-height:1.7;white-space:pre-wrap}

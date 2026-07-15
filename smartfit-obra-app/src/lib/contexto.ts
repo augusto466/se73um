@@ -9,7 +9,7 @@ const dt = (d: any) => d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
  * É isso que o advisor lê antes de responder — por isso ele fala com números, não com generalidades.
  * Respeita o papel: contratada não recebe dados financeiros.
  */
-export async function montarContexto(papel: string, obrasPermitidas: number[]) {
+export async function montarContexto(papel: string, obrasPermitidas: number[], usuarioId?: string) {
   const db = supabaseAdmin();
   const gestor = ['admin', 'contratante'].includes(papel);
   const hoje = new Date().toISOString().slice(0, 10);
@@ -39,9 +39,25 @@ export async function montarContexto(papel: string, obrasPermitidas: number[]) {
     fin = { lancs: l ?? [], saldo: Number(c?.saldo_inicial ?? 0) };
   }
 
+  let decisoes: any[] = [];
+  if (usuarioId) {
+    const { data } = await db.from('advisor_decisoes')
+      .select('titulo, detalhe, decidido_em, obra_id')
+      .eq('usuario_id', usuarioId)
+      .order('decidido_em', { ascending: false })
+      .limit(15);
+    decisoes = data ?? [];
+  }
+
   const L: string[] = [];
   L.push(`DATA DE HOJE: ${new Date().toLocaleDateString('pt-BR')}`);
   L.push(`PERFIL DE QUEM PERGUNTA: ${papel}`);
+
+  if (decisoes.length) {
+    L.push('\n=== DECISÕES JÁ TOMADAS PELO USUÁRIO (não sugerir de novo; respeitar como premissa) ===');
+    decisoes.forEach((d: any) =>
+      L.push(`  [${dt(d.decidido_em)}] ${d.titulo}${d.detalhe ? ' — ' + String(d.detalhe).slice(0, 250) : ''}`));
+  }
 
   // ---- carteira
   L.push('\n=== CARTEIRA DE OBRAS ===');
