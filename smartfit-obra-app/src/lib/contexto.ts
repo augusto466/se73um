@@ -59,6 +59,7 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
   const L: string[] = [];
   L.push(`DATA DE HOJE: ${new Date().toLocaleDateString('pt-BR')}`);
   L.push(`PERFIL DE QUEM PERGUNTA: ${papel}`);
+  L.push('IDs: sempre use os obra_id e colaborador_id exatos listados neste retrato. Nunca invente um ID.');
 
   if (decisoes.length) {
     L.push('\n=== DECISÕES JÁ TOMADAS PELO USUÁRIO (não sugerir de novo; respeitar como premissa) ===');
@@ -84,7 +85,7 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
     const meses = (o.meses ?? []) as any[];
     const planAcum = meses.filter(m => m.id <= o.mes_atual).reduce((s, m) => s + Number(m.plan), 0);
     const planPct = o.valor_global > 0 ? planAcum / Number(o.valor_global) * 100 : 0;
-    L.push(`\n[${o.codigo}] ${o.nome}`);
+    L.push(`\n[${o.codigo}] ${o.nome}  ←  obra_id = ${o.obra_id}  (use ESTE número em obra_id)`);
     L.push(`  Cliente: ${o.cliente ?? '—'} | Status: ${o.status} | Entrega: ${dt(o.entrega_final)}`);
     L.push(`  Valor global: ${fmt(o.valor_global)} | Medido: ${fmt(o.medido)} (${pct(o.avanco_pct)})`);
     L.push(`  Avanço planejado até o mês ${o.mes_atual}: ${pct(planPct)} | Gap: ${pct(Number(o.avanco_pct) - planPct)}`);

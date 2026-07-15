@@ -111,8 +111,8 @@ export default function ColaboradoresClient({ iniciais, centros, obras, papel }:
           {!filtrada.length && <p className="hint">{busca ? 'Ninguém com esse termo.' : 'Nenhum colaborador cadastrado. Comece pelas pessoas que você mais aciona.'}</p>}
           {Object.entries(porCentro).map(([cid, pessoas]) => (
             <div key={cid} style={{ marginBottom: 16 }}>
-              <h4 style={{ fontSize: 11, letterSpacing: '.06em', color: 'var(--gray)', marginBottom: 6 }}>
-                {(centros.find(c => c.id === cid)?.nome ?? 'SEM CENTRO DE CUSTO').toUpperCase()}
+              <h4 style={{ fontSize: 11, letterSpacing: '.04em', color: 'var(--gray)', marginBottom: 6, textTransform: 'uppercase' }}>
+                {centros.find(c => c.id === cid)?.nome ?? 'Sem centro de custo'}
               </h4>
               <table className="tab">
                 <thead><tr><th>Nome</th><th>Função</th><th>Vínculo</th><th>Contato</th><th></th></tr></thead>

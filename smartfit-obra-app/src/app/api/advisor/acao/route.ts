@@ -1,5 +1,38 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { supabaseServer, supabaseAdmin } from '@/lib/supabase/server';
+import { COOKIE_OBRA } from '@/lib/obra';
+
+/**
+ * Resolve a obra da ação. O advisor pode errar o ID (ou não informar):
+ * a fonte de verdade é o banco, não o palpite do modelo.
+ * - ID informado e acessível → usa
+ * - ID informado mas inexistente → erro claro, não FK violation
+ * - nada informado → obra ativa do cookie, se houver
+ */
+async function resolverObra(supa: any, obraId: any): Promise<number | null> {
+  if (obraId !== null && obraId !== undefined && obraId !== '') {
+    const { data } = await supa.from('obras').select('id, codigo').eq('id', Number(obraId)).maybeSingle();
+    if (data) return data.id;
+    const { data: todas } = await supa.from('obras').select('id, codigo').order('codigo');
+    const lista = (todas ?? []).map((o: any) => `${o.codigo} = ${o.id}`).join(', ');
+    throw new Error(`A obra ${obraId} não existe ou você não tem acesso.${lista ? ` Obras disponíveis: ${lista}.` : ''}`);
+  }
+  const doCookie = cookies().get(COOKIE_OBRA)?.value;
+  if (doCookie) {
+    const { data } = await supa.from('obras').select('id').eq('id', Number(doCookie)).maybeSingle();
+    if (data) return data.id;
+  }
+  return null;
+}
+
+/** Valida o colaborador e devolve o nome — mesma lógica: o banco decide. */
+async function resolverColaborador(supa: any, colabId: any) {
+  if (!colabId) return { id: null, nome: null };
+  const { data } = await supa.from('colaboradores').select('id, nome').eq('id', Number(colabId)).maybeSingle();
+  if (!data) throw new Error(`O colaborador ${colabId} não existe. Cadastre em Operação → Equipe de Campo, ou peça ao advisor para buscar a pessoa antes.`);
+  return { id: data.id, nome: data.nome };
+}
 
 /**
  * Executa uma ação proposta pelo advisor DEPOIS que o usuário confirma no cartão.
@@ -17,20 +50,26 @@ export async function POST(req: Request) {
   let resultado = '';
   try {
     if (tool === 'criar_tarefa') {
-      let responsavel = input.responsavel ?? null;
-      if (input.colaborador_id) {
-        const { data: c } = await supa.from('colaboradores').select('nome').eq('id', input.colaborador_id).maybeSingle();
-        if (c) responsavel = c.nome;
+      const obraId = await resolverObra(supa, input.obra_id);
+      const colab = await resolverColaborador(supa, input.colaborador_id);
+      const responsavel = colab.nome ?? input.responsavel ?? null;
+
+      // evento só existe no contexto de uma obra
+      let eventoId: string | null = null;
+      if (input.evento_id && obraId) {
+        const { data: ev } = await supa.from('eventos').select('id').eq('obra_id', obraId).eq('id', input.evento_id).maybeSingle();
+        eventoId = ev?.id ?? null;
       }
+
       const { error } = await supa.from('tarefas').insert({
         descricao: String(input.descricao).slice(0, 400),
-        colaborador_id: input.colaborador_id ?? null,
+        colaborador_id: colab.id,
         responsavel,
         prazo: input.prazo || null,
         prioridade: ['alta', 'media', 'baixa'].includes(input.prioridade) ? input.prioridade : 'media',
-        centro_id: input.centro_id ?? (input.obra_id ? 'cc_operacoes' : null),
-        obra_id: input.obra_id ?? null,
-        evento_id: input.evento_id ?? null,
+        centro_id: input.centro_id ?? (obraId ? 'cc_operacoes' : null),
+        obra_id: obraId,
+        evento_id: eventoId,
         coluna: 0,
         via_agente: true,
         criado_por: user.id,
@@ -50,8 +89,9 @@ export async function POST(req: Request) {
         criado_por: user.id,
       }).select('id, nome').single();
       if (error) throw new Error(error.message);
-      if (input.obra_id) {
-        await supa.from('colaborador_obras').insert({ colaborador_id: novo.id, obra_id: input.obra_id });
+      const obraColab = await resolverObra(supa, input.obra_id);
+      if (obraColab) {
+        await supa.from('colaborador_obras').insert({ colaborador_id: novo.id, obra_id: obraColab });
       }
       resultado = `${novo.nome} cadastrado (id ${novo.id}). Já dá para atribuir tarefas.`;
 
@@ -91,7 +131,7 @@ export async function POST(req: Request) {
         dia_semana: input.dia_semana ?? null,
         dia_mes: input.dia_mes ?? null,
         prioridade: ['alta', 'media', 'baixa'].includes(input.prioridade) ? input.prioridade : 'media',
-        obra_id: input.obra_id ?? null,
+        obra_id: await resolverObra(supa, input.obra_id),
         responsavel_id: user.id,
         criado_por: user.id,
       });
@@ -101,7 +141,7 @@ export async function POST(req: Request) {
     } else if (tool === 'registrar_decisao') {
       const { error } = await supa.from('advisor_decisoes').insert({
         usuario_id: user.id,
-        obra_id: input.obra_id ?? null,
+        obra_id: await resolverObra(supa, input.obra_id),
         titulo: String(input.titulo).slice(0, 250),
         detalhe: input.detalhe ? String(input.detalhe).slice(0, 1000) : null,
       });
