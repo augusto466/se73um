@@ -6,8 +6,9 @@ export default function NavTabs({ papel }: { papel: string }) {
   const path = usePathname();
   const gestor = papel === 'admin' || papel === 'contratante';
 
-  const tabs: [string, string][] = [
-    ['/meu-dia', 'Meu Dia'],
+  const tabs: [string, string][] = [['/meu-dia', 'Meu Dia']];
+  if (gestor) tabs.push(['/painel-ceo', 'Painel Executivo']);
+  tabs.push(
     ['/obras', 'Obras'],
     ['/visao', 'Visão Geral'],
     ['/cronograma', 'Cronograma & Medições'],
@@ -21,7 +22,7 @@ export default function NavTabs({ papel }: { papel: string }) {
     ['/diario', 'Diário de Obras'],
     // Oculto por decisão comercial:
     // ['/validacoes', 'Validações Contratuais'],
-  ];
+  );
   if (gestor) tabs.push(['/financeiro', 'Financeiro'], ['/metas', 'Metas']);
   if (papel === 'admin') tabs.push(['/equipe', 'Equipe & Acessos']);
 
