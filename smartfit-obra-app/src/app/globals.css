@@ -327,3 +327,21 @@ label.mini{cursor:pointer}
 .cc-bar{height:3px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
 .cc-bar div{height:100%;background:var(--brand)}
 .cc-tag{font-size:9.5px;padding:1px 5px;border-radius:99px;background:var(--line);color:var(--gray-2)}
+
+/* ---------- COMERCIAL: funil ---------- */
+.funil{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.fase{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px;min-width:0}
+.fase-hd{display:flex;justify-content:space-between;align-items:baseline;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
+.fase-v{font-family:var(--mono);font-size:11.5px;color:var(--gray);margin-bottom:8px}
+.fase-itens{display:flex;flex-direction:column;gap:6px}
+.op{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:8px 9px;transition:border-color .12s}
+.op:hover{border-color:var(--line-strong)}
+.op.atraso{border-left:3px solid var(--brand)}
+.op-t{font-size:12.5px;font-weight:600;line-height:1.3;display:block;margin-bottom:2px;color:var(--ink);text-decoration:none}
+.op-t:hover{color:var(--brand)}
+.op-v{font-family:var(--mono);font-size:12px;margin-top:4px;font-weight:600}
+.op-al{font-size:10px;color:var(--brand);margin-top:3px;font-weight:600}
+.op-acoes{display:flex;gap:4px;margin-top:7px;align-items:center}
+.op-acoes select{font-size:10.5px;padding:3px 4px;flex:1;min-width:0;border:1px solid var(--line);border-radius:4px;background:var(--surface-2);color:var(--ink)}
+@media(max-width:1200px){.funil{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.funil{grid-template-columns:1fr}}

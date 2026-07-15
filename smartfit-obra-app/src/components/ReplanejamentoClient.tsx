@@ -254,11 +254,15 @@ export default function ReplanejamentoClient({ eventos, deps, revisoes, obra, pa
 
             {gestor && impacto.diff.length > 0 && (
               <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-                <label className="lb">Motivo da revisão (fica no registro permanente)</label>
-                <input value={motivo} onChange={e => setMotivo(e.target.value)}
-                  placeholder="Ex.: antecipação da mobilização a pedido da contratante" style={{ marginBottom: 8 }} />
-                <label className="lb">Detalhe (opcional)</label>
-                <textarea value={detalhe} onChange={e => setDetalhe(e.target.value)} rows={2} style={{ marginBottom: 10 }} />
+                <div className="fg" style={{ marginBottom: 8 }}>
+                  <label>Motivo da revisão (fica no registro permanente)</label>
+                  <input value={motivo} onChange={e => setMotivo(e.target.value)}
+                    placeholder="Ex.: antecipação da mobilização a pedido da contratante" />
+                </div>
+                <div className="fg" style={{ marginBottom: 10 }}>
+                  <label>Detalhe (opcional)</label>
+                  <textarea value={detalhe} onChange={e => setDetalhe(e.target.value)} rows={2} />
+                </div>
                 <button className="btn" disabled={ocupado || motivo.trim().length < 5} onClick={() => simular(true)}>
                   Aplicar revisão R{String((revs[0]?.numero ?? 0) + 1).padStart(2, '0')}
                 </button>

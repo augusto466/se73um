@@ -100,22 +100,22 @@ export default function OportunidadeClient({ op, premissasIniciais, modelos, pro
           <span className="hint">é daqui que o orçamento sai</span>
         </div>
         <div className="bd">
-          <div className="grid2">
-            <div><label className="lb">Área de projeção (m²) *</label>
+          <div className="form-grid">
+            <div className="fg"><label>Área de projeção (m²) *</label>
               <input type="number" step="0.01" value={prem.area_projecao ?? ''} onChange={e => setPrem({ ...prem, area_projecao: e.target.value })} /></div>
-            <div><label className="lb">Área de laje / mezanino (m²)</label>
+            <div className="fg"><label>Área de laje / mezanino (m²)</label>
               <input type="number" step="0.01" value={prem.area_laje ?? ''} onChange={e => setPrem({ ...prem, area_laje: e.target.value })} /></div>
-            <div><label className="lb">Pé-direito (m)</label>
+            <div className="fg"><label>Pé-direito (m)</label>
               <input type="number" step="0.1" value={prem.pe_direito ?? ''} onChange={e => setPrem({ ...prem, pe_direito: e.target.value })} /></div>
-            <div><label className="lb">Prazo (meses)</label>
+            <div className="fg"><label>Prazo (meses)</label>
               <input type="number" step="0.5" value={prem.prazo_meses ?? ''} onChange={e => setPrem({ ...prem, prazo_meses: e.target.value })} /></div>
-            <div><label className="lb">Padrão de acabamento</label>
+            <div className="fg"><label>Padrão de acabamento</label>
               <select value={prem.padrao_acabamento ?? 'medio'} onChange={e => setPrem({ ...prem, padrao_acabamento: e.target.value })}>
                 <option value="simples">Simples (−8%)</option>
                 <option value="medio">Médio (referência)</option>
                 <option value="alto">Alto (+18%)</option>
               </select></div>
-            <div><label className="lb">Modelo de orçamento</label>
+            <div className="fg"><label>Modelo de orçamento</label>
               <select value={modeloId} onChange={e => setModeloId(Number(e.target.value))}>
                 {modelos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
               </select></div>

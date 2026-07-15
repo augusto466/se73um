@@ -76,29 +76,29 @@ export default function ColaboradoresClient({ iniciais, centros, obras, papel }:
 
         {novo && podeEditar && (
           <div className="bd" style={{ borderBottom: '1px solid var(--line)' }}>
-            <div className="grid2">
-              <div><label className="lb">Nome</label>
+            <div className="form-grid">
+              <div className="fg"><label>Nome</label>
                 <input value={f.nome} onChange={e => setF({ ...f, nome: e.target.value })} placeholder="Ex.: Cleiton Souza" /></div>
-              <div><label className="lb">Função</label>
+              <div className="fg"><label>Função</label>
                 <input value={f.funcao} onChange={e => setF({ ...f, funcao: e.target.value })} placeholder="Ex.: Engenheiro civil" /></div>
-              <div><label className="lb">Vínculo</label>
+              <div className="fg"><label>Vínculo</label>
                 <select value={f.vinculo} onChange={e => setF({ ...f, vinculo: e.target.value })}>
                   {Object.entries(VINCULOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select></div>
-              <div><label className="lb">Empresa</label>
+              <div className="fg"><label>Empresa</label>
                 <input value={f.empresa} onChange={e => setF({ ...f, empresa: e.target.value })} placeholder="deixe vazio se for da casa" /></div>
-              <div><label className="lb">Centro de custo</label>
+              <div className="fg"><label>Centro de custo</label>
                 <select value={f.centro_id} onChange={e => setF({ ...f, centro_id: e.target.value })}>
                   {centros.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                 </select></div>
-              <div><label className="lb">Obra (opcional)</label>
+              <div className="fg"><label>Obra (opcional)</label>
                 <select value={f.obra_id} onChange={e => setF({ ...f, obra_id: e.target.value })}>
                   <option value="">— nenhuma —</option>
                   {obras.map(o => <option key={o.id} value={o.id}>{o.codigo}</option>)}
                 </select></div>
-              <div><label className="lb">E-mail</label>
+              <div className="fg"><label>E-mail</label>
                 <input value={f.email} onChange={e => setF({ ...f, email: e.target.value })} /></div>
-              <div><label className="lb">Telefone</label>
+              <div className="fg"><label>Telefone</label>
                 <input value={f.telefone} onChange={e => setF({ ...f, telefone: e.target.value })} /></div>
             </div>
             <button className="btn" style={{ marginTop: 10 }} disabled={ocupado || !f.nome.trim()} onClick={criar}>

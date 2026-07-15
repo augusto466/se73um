@@ -103,29 +103,29 @@ export default function ComercialClient({ iniciais, ganhas, perdidas }:
 
         {nova && (
           <div className="bd" style={{ borderBottom: '1px solid var(--line)' }}>
-            <div className="grid2">
-              <div><label className="lb">Título</label>
+            <div className="form-grid">
+              <div className="fg"><label>Título</label>
                 <input value={f.titulo} onChange={e => setF({ ...f, titulo: e.target.value })} placeholder="Ex.: BTS Smart Fit — Setor Bueno" /></div>
-              <div><label className="lb">Cliente</label>
+              <div className="fg"><label>Cliente</label>
                 <input value={f.cliente} onChange={e => setF({ ...f, cliente: e.target.value })} /></div>
-              <div><label className="lb">Origem</label>
+              <div className="fg"><label>Origem</label>
                 <select value={f.origem} onChange={e => setF({ ...f, origem: e.target.value })}>
                   {Object.entries(ORIGENS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select></div>
-              <div><label className="lb">Tipo de obra</label>
+              <div className="fg"><label>Tipo de obra</label>
                 <select value={f.tipo_obra} onChange={e => setF({ ...f, tipo_obra: e.target.value })}>
                   <option value="galpao_metalico">Galpão metálico</option>
                   <option value="bts_academia">BTS academia</option>
                   <option value="estrutura_avulsa">Estrutura avulsa</option>
                   <option value="servico">Serviço</option>
                 </select></div>
-              <div><label className="lb">Local</label>
+              <div className="fg"><label>Local</label>
                 <input value={f.local} onChange={e => setF({ ...f, local: e.target.value })} /></div>
-              <div><label className="lb">Valor estimado (R$)</label>
+              <div className="fg"><label>Valor estimado (R$)</label>
                 <input type="number" value={f.valor_estimado} onChange={e => setF({ ...f, valor_estimado: e.target.value })} placeholder="chute inicial, refina depois" /></div>
-              <div><label className="lb">Prazo p/ entregar a proposta</label>
+              <div className="fg"><label>Prazo p/ entregar a proposta</label>
                 <input type="date" value={f.prazo_proposta} onChange={e => setF({ ...f, prazo_proposta: e.target.value })} /></div>
-              <div><label className="lb">Decisão do cliente</label>
+              <div className="fg"><label>Decisão do cliente</label>
                 <input type="date" value={f.data_decisao} onChange={e => setF({ ...f, data_decisao: e.target.value })} /></div>
             </div>
             <button className="btn" style={{ marginTop: 10 }} disabled={ocupado} onClick={criar}>
