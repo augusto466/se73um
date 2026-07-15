@@ -39,7 +39,9 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
     fin = { lancs: l ?? [], saldo: Number(c?.saldo_inicial ?? 0) };
   }
 
-  const [depsCron, revisoes] = await Promise.all([
+  const [colabs, centros, depsCron, revisoes] = await Promise.all([
+    db.from('colaboradores').select('id, nome, funcao, empresa, vinculo, centro_id').eq('ativo', true).order('nome').then((r: any) => r.data ?? []),
+    db.from('centros_custo').select('id, nome, tipo').eq('ativo', true).order('ordem').then((r: any) => r.data ?? []),
     filtro(db.from('evento_dependencias').select('obra_id, evento_id, depende_de, tipo, folga_dias')).then((r: any) => r.data ?? []),
     filtro(db.from('cronograma_revisoes').select('obra_id, numero, motivo, origem, criado_em, impacto').order('numero', { ascending: false }).limit(10)).then((r: any) => r.data ?? []),
   ]);
@@ -63,6 +65,18 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
     decisoes.forEach((d: any) =>
       L.push(`  [${dt(d.decidido_em)}] ${d.titulo}${d.detalhe ? ' — ' + String(d.detalhe).slice(0, 250) : ''}`));
   }
+
+  // ---- pessoas e centros de custo (o maker precisa disso para atribuir trabalho)
+  L.push('\n=== EQUIPE (colaboradores cadastrados) ===');
+  if (!colabs.length) {
+    L.push('  Nenhum colaborador cadastrado ainda. Para atribuir trabalho a alguem, proponha cadastrar_colaborador primeiro.');
+  } else {
+    colabs.forEach((c: any) =>
+      L.push(`  id ${c.id}: ${c.nome}${c.funcao ? ` — ${c.funcao}` : ''} (${c.vinculo}${c.empresa ? `, ${c.empresa}` : ''})${c.centro_id ? ` · ${c.centro_id}` : ''}`));
+  }
+
+  L.push('\n=== CENTROS DE CUSTO (dimensao da EMPRESA, nao da obra) ===');
+  centros.forEach((c: any) => L.push(`  ${c.id}: ${c.nome} (${c.tipo})`));
 
   // ---- carteira
   L.push('\n=== CARTEIRA DE OBRAS ===');

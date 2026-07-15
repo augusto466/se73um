@@ -17,18 +17,74 @@ export async function POST(req: Request) {
   let resultado = '';
   try {
     if (tool === 'criar_tarefa') {
+      let responsavel = input.responsavel ?? null;
+      if (input.colaborador_id) {
+        const { data: c } = await supa.from('colaboradores').select('nome').eq('id', input.colaborador_id).maybeSingle();
+        if (c) responsavel = c.nome;
+      }
       const { error } = await supa.from('tarefas').insert({
         descricao: String(input.descricao).slice(0, 400),
+        colaborador_id: input.colaborador_id ?? null,
+        responsavel,
         prazo: input.prazo || null,
         prioridade: ['alta', 'media', 'baixa'].includes(input.prioridade) ? input.prioridade : 'media',
+        centro_id: input.centro_id ?? (input.obra_id ? 'cc_operacoes' : null),
         obra_id: input.obra_id ?? null,
+        evento_id: input.evento_id ?? null,
+        coluna: 0,
+        via_agente: true,
         criado_por: user.id,
       });
       if (error) throw new Error(error.message);
-      resultado = 'Tarefa criada no quadro.';
+      resultado = `Tarefa criada em "A fazer"${responsavel ? ` para ${responsavel}` : ''}.`;
+
+    } else if (tool === 'cadastrar_colaborador') {
+      const { data: novo, error } = await supa.from('colaboradores').insert({
+        nome: String(input.nome).slice(0, 150),
+        funcao: input.funcao ? String(input.funcao).slice(0, 100) : null,
+        vinculo: ['proprio', 'terceirizado', 'fornecedor', 'autonomo'].includes(input.vinculo) ? input.vinculo : 'proprio',
+        empresa: input.empresa ? String(input.empresa).slice(0, 150) : null,
+        centro_id: input.centro_id ?? null,
+        email: input.email ?? null,
+        telefone: input.telefone ?? null,
+        criado_por: user.id,
+      }).select('id, nome').single();
+      if (error) throw new Error(error.message);
+      if (input.obra_id) {
+        await supa.from('colaborador_obras').insert({ colaborador_id: novo.id, obra_id: input.obra_id });
+      }
+      resultado = `${novo.nome} cadastrado (id ${novo.id}). Já dá para atribuir tarefas.`;
+
+    } else if (tool === 'aprovar_pedido') {
+      const pid = Number(input.pedido_id);
+      const { data: p } = await supa.from('pedidos_materiais').select('*').eq('id', pid).maybeSingle();
+      if (!p) throw new Error(`Pedido PM-${String(pid).padStart(3, '0')} não encontrado ou sem acesso.`);
+      if (p.status !== 'enviado') throw new Error(`PM-${String(pid).padStart(3, '0')} está como "${p.status}" — não dá para aprovar.`);
+      if (!p.cotacao_vencedora) throw new Error('O pedido não tem cotação vencedora definida. Escolha a cotação na tela de Materiais.');
+
+      const { error } = await supa.from('pedidos_materiais').update({
+        status: 'aprovado',
+        motivo_decisao: input.justificativa ? String(input.justificativa).slice(0, 500) : 'Aprovado via advisor, com confirmação do usuário.',
+        decidido_por: user.id,
+        decidido_em: new Date().toISOString(),
+      }).eq('id', pid);
+      if (error) throw new Error(error.message);
+
+      // trilha de auditoria: fica registrado que veio por comando de chat
+      await supa.from('auditoria').insert({
+        usuario: user.id, obra_id: p.obra_id,
+        acao: 'pedido_aprovado', entidade: 'pedidos_materiais', entidade_id: String(pid),
+        detalhe: { cotacao_vencedora: p.cotacao_vencedora, motivo: input.justificativa ?? null, via: 'advisor' },
+        via_agente: true,
+      });
+
+      const { data: cot } = await supa.from('cotacoes').select('fornecedor, valor_total').eq('id', p.cotacao_vencedora).maybeSingle();
+      resultado = `PM-${String(pid).padStart(3, '0')} aprovado${cot ? ` — ${cot.fornecedor}, ${Number(cot.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}. O contas a pagar é gerado automaticamente.`;
 
     } else if (tool === 'criar_rotina') {
       const { error } = await supa.from('rotinas').insert({
+        centro_id: input.centro_id ?? null,
+        via_agente: true,
         titulo: String(input.titulo).slice(0, 200),
         detalhe: input.detalhe ? String(input.detalhe).slice(0, 500) : null,
         frequencia: input.frequencia,

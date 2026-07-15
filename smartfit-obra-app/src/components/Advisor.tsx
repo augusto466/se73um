@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { HexMark } from './Marca';
 
-type Acao = { id: string; tool: string; rotulo: string; input: any; status: 'pendente' | 'executada' | 'descartada' | 'erro' };
+type Acao = { id: string; tool: string; rotulo: string; input: any; detalhe?: any; status: 'pendente' | 'executada' | 'descartada' | 'erro' };
 type Msg = { role: 'user' | 'assistant'; content: string; acoes?: Acao[] };
 type AnexoLocal = { tipo: 'pdf' | 'imagem' | 'texto'; nome: string; media_type?: string; dados: string };
 
@@ -237,6 +237,33 @@ export default function Advisor() {
                   {(m.acoes ?? []).map(a => (
                     <div key={a.id} className={`adv-acao ${a.status}`}>
                       <div className="adv-acao-r">{a.rotulo}</div>
+
+                      {a.detalhe?.tipo === 'pedido' && (
+                        <div className="adv-ped">
+                          <div className="adv-ped-t">{a.detalhe.titulo}</div>
+                          <div className="hint" style={{ marginBottom: 7 }}>
+                            {a.detalhe.evento_id ? `evento ${a.detalhe.evento_id}` : 'sem evento vinculado'}
+                            {a.detalhe.necessidade ? ` · necessidade em obra ${new Date(a.detalhe.necessidade + 'T12:00:00').toLocaleDateString('pt-BR')}` : ''}
+                          </div>
+                          {(a.detalhe.cotacoes ?? []).map((c: any, k: number) => (
+                            <div key={k} className={`adv-cot ${c.vencedora ? 'venc' : ''}`}>
+                              <div>
+                                <b>{c.fornecedor}</b>{c.vencedora && <span className="st st-ok" style={{ marginLeft: 6 }}>ESCOLHIDA</span>}
+                                <div className="hint">{c.prazo ?? 'prazo ?'} · {c.condicoes ?? 'pagamento ?'}</div>
+                              </div>
+                              <b>{(c.valor ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</b>
+                            </div>
+                          ))}
+                          {a.detalhe.orcado && (
+                            <div className="hint" style={{ marginTop: 7 }}>
+                              Orçado para {a.detalhe.orcado.etapa}: {(a.detalhe.orcado.valor ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                              {a.detalhe.valor > a.detalhe.orcado.valor
+                                ? ` · esta compra passa o orçado em ${(a.detalhe.valor - a.detalhe.orcado.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`
+                                : ` · consumo de ${((a.detalhe.valor / a.detalhe.orcado.valor) * 100).toFixed(0)}%`}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {a.status === 'pendente' && (
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn adv-acao-ok" onClick={() => confirmarAcao(i, a)}>Confirmar</button>

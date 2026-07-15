@@ -305,3 +305,7 @@ label.mini{cursor:pointer}
 .adv-brief{border-left:3px solid var(--brand)}
 .adv-brief-dot{width:7px;height:7px;border-radius:99px;background:var(--brand);display:inline-block}
 .adv-brief-txt{font-size:13.5px;line-height:1.7;white-space:pre-wrap}
+.adv-ped{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:9px 10px;margin:2px 0 4px}
+.adv-ped-t{font-size:12.5px;font-weight:600;margin-bottom:2px}
+.adv-cot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 8px;border-radius:5px;font-size:11.5px;border:1px solid transparent}
+.adv-cot.venc{border-color:var(--brand);background:var(--brand-soft)}

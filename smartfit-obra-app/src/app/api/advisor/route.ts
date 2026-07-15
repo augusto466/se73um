@@ -33,11 +33,25 @@ CRONOGRAMA — COMO VOCÊ TRATA:
 - Regra desta empresa: antecipar ou atrasar a execução MOVE O EVENTO DE MEDIÇÃO JUNTO — o faturamento acompanha o físico. Sempre mostre o efeito no faturamento por mês.
 - Antecipar medição depende de aceite da contratante (Cl. 3.4.6: 7 dias úteis para análise). Diga isso quando for o caso.
 
+VOCÊ NÃO É SÓ CONSELHEIRO — VOCÊ CONSTRÓI:
+- Quando o usuário pedir algo que vira trabalho no sistema, MONTE. Não descreva o que ele deveria fazer: proponha a coisa pronta.
+- Decomponha pedidos compostos. "Pedir ao Cleiton para mobilizar a máquina, nivelar o terreno e aplicar brita" são tarefas encadeadas, com responsável, prazo, centro de custo e obra — proponha a sequência, não uma tarefa genérica.
+- Resolva nomes antes de agir: use buscar_pessoa para achar o colaborador. Se não existir, proponha cadastrar. Se houver mais de um com o mesmo nome, PERGUNTE — nunca chute.
+- Centro de custo é dimensão da EMPRESA (Operações, RH, Jurídico, Comercial...), não da obra. Trabalho de obra normalmente é cc_operacoes; compra é cc_suprimentos; contrato/jurídico é cc_juridico. Na dúvida, pergunte.
+- Preencha o que dá para inferir e diga o que inferiu. Não pergunte o que já está no retrato.
+
 SUAS FERRAMENTAS:
 - buscar_acervo: pesquisa nos projetos, documentos e anexos do GED. Use quando a pergunta envolver o conteúdo de um documento, memorial, projeto ou contrato anexado. Se a busca não retornar nada, diga que não encontrou no acervo.
 - simular_replanejamento: roda o cenário e devolve o impacto (datas em cascata, curva de faturamento, alertas contratuais) SEM gravar nada. Use SEMPRE antes de propor uma revisão — inclusive quando o usuário já disser o que quer fazer. Leia o resultado e comente com os números.
 - aplicar_replanejamento: PROPÕE gravar a revisão. Só use depois de simular e de o usuário concordar com o cenário. Exige motivo. O usuário ainda confirma num cartão antes de executar.
-- criar_tarefa, criar_rotina, registrar_decisao: PROPÕEM uma ação — o usuário confirma num cartão antes de executar. Use quando a conversa levar naturalmente a uma ação concreta, ou quando o usuário disser que decidiu algo (registre a decisão). Nunca proponha mais de 3 ações por resposta.
+- buscar_pessoa: encontra colaboradores pelo nome/função. Roda na hora, sem confirmação. Use SEMPRE antes de atribuir trabalho a alguém.
+- criar_tarefa, criar_rotina, registrar_decisao, cadastrar_colaborador: PROPÕEM uma ação — o usuário confirma num cartão. Para uma sequência de trabalho, proponha as tarefas na ordem (máx. 6 por resposta).
+- aprovar_pedido: PROPÕE aprovar um pedido de compra. O cartão mostra o pedido inteiro (cotações, valores, prazos, impacto no orçado) para o usuário conferir antes de confirmar. Se não houver cotação vencedora definida, NÃO use — pergunte qual cotação ele escolhe.
+
+O QUE VOCÊ NÃO FAZ, NUNCA:
+- Aprovar ou validar MEDIÇÃO. É ato de análise técnica com consequência contratual (Cl. 3.4.1: aprovar não é aceitação definitiva; Cl. 3.4.6: 7 dias úteis de análise). Se pedirem, explique e mande para a tela de Cronograma/Validações.
+- Enviar e-mail ou qualquer comunicação a terceiro. Você redige, o usuário envia.
+- Alterar o baseline contratual do cronograma.
 - Minutas de comunicação formal (Cl. 17.1): escreva o texto diretamente na resposta, pronto para copiar, com campos [ENTRE COLCHETES] para o que você não souber.
 
 - Tom: direto, respeitoso, sem bajulação e sem jargão de consultoria. Português do Brasil.
@@ -101,17 +115,60 @@ const FERRAMENTAS = [
     },
   },
   {
+    name: 'buscar_pessoa',
+    description: 'Busca colaboradores cadastrados por nome ou função. Executa na hora, sem confirmação. Use antes de atribuir trabalho a alguém.',
+    input_schema: {
+      type: 'object',
+      properties: { termo: { type: 'string', description: 'Nome ou função, ex.: "Cleiton" ou "engenheiro"' } },
+      required: ['termo'],
+    },
+  },
+  {
+    name: 'cadastrar_colaborador',
+    description: 'Propõe cadastrar uma pessoa que executa trabalho mas não tem login no sistema. O usuário confirma.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        nome: { type: 'string' },
+        funcao: { type: 'string', description: 'Ex.: Engenheiro, Encarregado, Mestre de obras' },
+        vinculo: { type: 'string', enum: ['proprio', 'terceirizado', 'fornecedor', 'autonomo'] },
+        empresa: { type: 'string' },
+        centro_id: { type: 'string', description: 'Centro de custo, ex.: cc_operacoes' },
+        email: { type: 'string' },
+        telefone: { type: 'string' },
+        obra_id: { type: 'number', description: 'Vincula à obra, se aplicável' },
+      },
+      required: ['nome'],
+    },
+  },
+  {
     name: 'criar_tarefa',
-    description: 'Propõe criar uma tarefa no quadro. O usuário confirma antes de executar.',
+    description: 'Propõe criar uma tarefa no quadro, com responsável, prazo e centro de custo. O usuário confirma antes de executar.',
     input_schema: {
       type: 'object',
       properties: {
         descricao: { type: 'string' },
-        prazo: { type: 'string', description: 'Data AAAA-MM-DD (opcional)' },
+        colaborador_id: { type: 'number', description: 'ID do colaborador responsável (use buscar_pessoa antes)' },
+        responsavel: { type: 'string', description: 'Nome do responsável, se não houver cadastro' },
+        prazo: { type: 'string', description: 'Data AAAA-MM-DD' },
         prioridade: { type: 'string', enum: ['alta', 'media', 'baixa'] },
-        obra_id: { type: 'number', description: 'ID da obra, se aplicável' },
+        centro_id: { type: 'string', description: 'Centro de custo, ex.: cc_operacoes' },
+        obra_id: { type: 'number', description: 'ID da obra, se for trabalho de obra' },
+        evento_id: { type: 'string', description: 'Evento de medição vinculado, ex.: E03' },
       },
       required: ['descricao'],
+    },
+  },
+  {
+    name: 'aprovar_pedido',
+    description: 'Propõe aprovar um pedido de compra. O cartão mostra as cotações e o impacto para o usuário conferir. Exige que o pedido tenha cotação vencedora definida.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        pedido_id: { type: 'number', description: 'Número do pedido, ex.: 12 para PM-012' },
+        justificativa: { type: 'string', description: 'Por que aprovar — fica no registro' },
+      },
+      required: ['pedido_id'],
     },
   },
   {
@@ -150,6 +207,8 @@ function rotuloAcao(tool: string, input: any) {
   if (tool === 'criar_tarefa') return `Criar tarefa: ${input.descricao}${input.prazo ? ` (prazo ${input.prazo})` : ''}`;
   if (tool === 'criar_rotina') return `Criar rotina ${input.frequencia}: ${input.titulo}`;
   if (tool === 'registrar_decisao') return `Registrar decisão: ${input.titulo}`;
+  if (tool === 'cadastrar_colaborador') return `Cadastrar ${input.nome}${input.funcao ? ` — ${input.funcao}` : ''}`;
+  if (tool === 'aprovar_pedido') return `Aprovar PM-${String(input.pedido_id).padStart(3, '0')}`;
   if (tool === 'aplicar_replanejamento') {
     const n = (input.ajustes ?? []).length;
     return `Aplicar revisão de cronograma: ${n} evento(s) movido(s) — ${input.motivo}`;
@@ -169,6 +228,44 @@ async function executarBusca(consulta: string, papel: string, obras: number[]) {
   return data.map((r: any) =>
     `[${ORIG[r.origem] ?? r.origem} #${r.origem_id}] "${r.titulo}"${r.obra_id ? ` (obra ${r.obra_id})` : ' (empresa)'}\n${String(r.trecho).replace(/>>/g, '«').replace(/<</g, '»')}`
   ).join('\n\n');
+}
+
+/** Busca colaboradores por nome ou função — executa na hora, não precisa de confirmação. */
+async function executarBuscaPessoa(termo: string) {
+  const db = supabaseAdmin();
+  const t = String(termo ?? '').trim();
+  if (!t) return 'Informe um nome ou função para buscar.';
+  const { data } = await db.from('colaboradores')
+    .select('id, nome, funcao, empresa, vinculo, centro_id, email, telefone, ativo')
+    .or(`nome.ilike.%${t}%,funcao.ilike.%${t}%`)
+    .eq('ativo', true).limit(8);
+  if (!data?.length) {
+    return `Nenhum colaborador encontrado para "${t}". Se a pessoa ainda não está cadastrada, proponha cadastrar_colaborador antes de atribuir a tarefa.`;
+  }
+  return data.map((c: any) =>
+    `id ${c.id}: ${c.nome}${c.funcao ? ` — ${c.funcao}` : ''} (${c.vinculo}${c.empresa ? `, ${c.empresa}` : ''})${c.centro_id ? ` · ${c.centro_id}` : ''}`
+  ).join('\n') + (data.length > 1 ? '\n\nMais de um resultado: confirme com o usuário qual é a pessoa antes de atribuir.' : '');
+}
+
+/** Monta o detalhe do pedido para o cartão de aprovação — o usuário vê o que está aprovando. */
+async function detalharPedido(pedidoId: number, obrasPermitidas: number[], papel: string) {
+  const db = supabaseAdmin();
+  const { data: p } = await db.from('pedidos_materiais').select('*').eq('id', pedidoId).maybeSingle();
+  if (!p) return { erro: `Pedido PM-${String(pedidoId).padStart(3, '0')} não encontrado.` };
+  if (papel !== 'admin' && !obrasPermitidas.includes(p.obra_id)) return { erro: 'Sem acesso a esse pedido.' };
+  if (p.status !== 'enviado') return { erro: `PM-${String(pedidoId).padStart(3, '0')} está como "${p.status}" — só dá para aprovar pedido aguardando aprovação.` };
+  if (!p.cotacao_vencedora) return { erro: `PM-${String(pedidoId).padStart(3, '0')} não tem cotação vencedora definida. Pergunte ao usuário qual cotação ele escolhe — não escolha por ele.` };
+
+  const { data: cots } = await db.from('cotacoes').select('*').eq('pedido_id', pedidoId);
+  const venc = (cots ?? []).find((c: any) => c.id === p.cotacao_vencedora);
+  if (!venc) return { erro: 'A cotação vencedora do pedido não foi encontrada.' };
+
+  let orcado: any = null;
+  if (p.evento_id) {
+    const { data: o } = await db.from('orcamento').select('etapa, valor_orcado').eq('obra_id', p.obra_id).eq('evento_id', p.evento_id).maybeSingle();
+    orcado = o;
+  }
+  return { pedido: p, cotacoes: cots ?? [], vencedora: venc, orcado };
 }
 
 /** Roda a simulação de replanejamento sem gravar nada. */
@@ -366,10 +463,49 @@ export async function POST(req: Request) {
               emitir({ t: 'busca', v: input.consulta ?? '' });
               const res = await executarBusca(String(input.consulta ?? ''), papel, obrasPermitidas);
               resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
+            } else if (u.name === 'buscar_pessoa') {
+              emitir({ t: 'busca', v: `procurando "${input.termo ?? ''}"` });
+              const res = await executarBuscaPessoa(String(input.termo ?? ''));
+              resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
             } else if (u.name === 'simular_replanejamento') {
               emitir({ t: 'busca', v: 'simulando o replanejamento' });
               const res = await executarSimulacao(input, obrasPermitidas, papel);
               resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
+            } else if (u.name === 'aprovar_pedido') {
+              // o cartão mostra o pedido inteiro: o usuário aprova vendo, não de memória
+              const det = await detalharPedido(Number(input.pedido_id), obrasPermitidas, papel);
+              if ((det as any).erro) {
+                resultados.push({ type: 'tool_result', tool_use_id: u.id, content: (det as any).erro });
+              } else {
+                const d = det as any;
+                const acao = {
+                  id: `${Date.now()}_${acoesPropostas.length}`, tool: u.name,
+                  input: { ...input, obra_id: d.pedido.obra_id },
+                  rotulo: rotuloAcao(u.name, input),
+                  detalhe: {
+                    tipo: 'pedido',
+                    numero: `PM-${String(d.pedido.id).padStart(3, '0')}`,
+                    titulo: d.pedido.titulo,
+                    evento_id: d.pedido.evento_id,
+                    necessidade: d.pedido.necessidade,
+                    cotacoes: d.cotacoes.map((c: any) => ({
+                      fornecedor: c.fornecedor, valor: Number(c.valor_total),
+                      prazo: c.prazo_entrega, condicoes: c.condicoes_pagamento,
+                      vencedora: c.id === d.pedido.cotacao_vencedora,
+                    })),
+                    valor: Number(d.vencedora.valor_total),
+                    fornecedor: d.vencedora.fornecedor,
+                    orcado: d.orcado ? { etapa: d.orcado.etapa, valor: Number(d.orcado.valor_orcado) } : null,
+                  },
+                  status: 'pendente',
+                };
+                acoesPropostas.push(acao);
+                emitir({ t: 'acao', v: acao });
+                resultados.push({
+                  type: 'tool_result', tool_use_id: u.id,
+                  content: `Cartão de aprovação apresentado ao usuário com o pedido completo (${d.vencedora.fornecedor}, ${Number(d.vencedora.valor_total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}). NÃO está aprovado — ele confere e confirma. Comente brevemente a escolha e o impacto no orçado, sem repetir a tabela.`,
+                });
+              }
             } else {
               const acao = { id: `${Date.now()}_${acoesPropostas.length}`, tool: u.name, input, rotulo: rotuloAcao(u.name, input), status: 'pendente' };
               acoesPropostas.push(acao);

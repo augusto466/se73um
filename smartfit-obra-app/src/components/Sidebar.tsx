@@ -32,6 +32,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
       { href: '/diario', label: 'Diário de Obras', ic: '◱' },
       { href: '/qualidade', label: 'Qualidade', ic: '◰' },
       { href: '/tarefas', label: 'Tarefas', ic: '◧' },
+      { href: '/colaboradores', label: 'Equipe de Campo', ic: '◍' },
       { href: '/rotinas', label: 'Rotinas', ic: '◨' },
     ]},
     { titulo: 'Acervo', itens: [
