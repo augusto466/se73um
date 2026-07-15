@@ -4,7 +4,7 @@ import { fmtData, diasAte } from '@/lib/contrato';
 
 const TITULOS: Record<string, [string, string]> = {
   '/meu-dia':     ['Meu Dia', 'O que precisa de você hoje'],
-  '/painel-ceo':  ['Painel Executivo', 'Carteira, margem e sinais de desvio'],
+  '/painel-ceo':  ['Cockpit de Gestão', 'Margem, caixa, prazo e decisões — a leitura da segunda-feira'],
   '/obras':       ['Obras', 'Portfólio de contratos'],
   '/visao':       ['Visão da Obra', 'Avanço físico-financeiro'],
   '/cronograma':  ['Cronograma & Medições', 'Eventos, critérios de aceite e validação'],

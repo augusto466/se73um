@@ -17,7 +17,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
   const grupos: Grupo[] = [
     { titulo: 'Comando', itens: [
       { href: '/meu-dia', label: 'Meu Dia', ic: '◈', badge: badges.meuDia },
-      ...(gestor ? [{ href: '/painel-ceo', label: 'Painel Executivo', ic: '◉' }] : []),
+      ...(gestor ? [{ href: '/painel-ceo', label: 'Cockpit', ic: '◉' }] : []),
       { href: '/obras', label: 'Obras', ic: '⬢' },
     ]},
     { titulo: 'Contrato', itens: [
