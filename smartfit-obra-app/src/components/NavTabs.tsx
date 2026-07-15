@@ -16,6 +16,7 @@ const TABS: [string, string][] = [
 export default function NavTabs({ papel }: { papel: string }) {
   const path = usePathname();
   const tabs: [string, string][] = [['/obras', 'Obras'], ...TABS];
+  if (papel === 'admin' || papel === 'contratante') tabs.push(['/financeiro', 'Financeiro']);
   if (papel === 'admin') tabs.push(['/equipe', 'Equipe & Acessos']);
   return (
     <nav className="tabs">
