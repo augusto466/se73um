@@ -52,6 +52,23 @@ export async function POST(req: Request) {
       if (error) throw new Error(error.message);
       resultado = 'Decisão registrada. O advisor passa a respeitá-la como premissa.';
 
+    } else if (tool === 'aplicar_replanejamento') {
+      // reusa a rota de replanejamento: mesma validação, mesmo registro de revisão
+      const r = await fetch(new URL('/api/replanejamento', req.url), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', cookie: req.headers.get('cookie') ?? '' },
+        body: JSON.stringify({
+          obra_id: input.obra_id, ajustes: input.ajustes,
+          motivo: input.motivo, detalhe: input.detalhe,
+          aplicar: true, origem: 'advisor',
+        }),
+      });
+      const j = await r.json();
+      if (j.erro) throw new Error(j.erro);
+      const dias = j.impacto?.dias_entrega ?? 0;
+      resultado = `Revisão R${String(j.revisao?.numero ?? 0).padStart(2, '0')} registrada: ${j.impacto?.diff?.length ?? 0} evento(s) replanejado(s). `
+        + `Conclusão projetada ${dias === 0 ? 'sem alteração' : (dias > 0 ? `+${dias} dia(s)` : `${dias} dia(s)`)} frente ao baseline. O cronograma contratual segue intacto.`;
+
     } else {
       return NextResponse.json({ erro: 'Ferramenta desconhecida.' }, { status: 400 });
     }

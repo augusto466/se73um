@@ -1,5 +1,6 @@
 import { supabaseServer, supabaseAdmin } from '@/lib/supabase/server';
 import { montarContexto } from '@/lib/contexto';
+import { simular, impactoEmTexto, type EventoCron, type Dependencia } from '@/lib/replanejamento';
 
 export const maxDuration = 60;
 
@@ -26,8 +27,16 @@ COMO VOCÊ RESPONDE:
   Cl. 13.1.1 seguro garantia 10% · Cl. 13.2 documentos de regularidade · Cl. 13.3 documento irregular autoriza reter medição
   Cl. 17.1 comunicação formal por escrito
 
+CRONOGRAMA — COMO VOCÊ TRATA:
+- O cronograma contratual (baseline, Anexo III) é INTOCÁVEL. Você nunca propõe alterá-lo; o banco inclusive rejeita.
+- Replanejar = mover as datas PREVISTAS. O baseline continua lá para comparação. Toda revisão fica registrada com motivo e autor.
+- Regra desta empresa: antecipar ou atrasar a execução MOVE O EVENTO DE MEDIÇÃO JUNTO — o faturamento acompanha o físico. Sempre mostre o efeito no faturamento por mês.
+- Antecipar medição depende de aceite da contratante (Cl. 3.4.6: 7 dias úteis para análise). Diga isso quando for o caso.
+
 SUAS FERRAMENTAS:
 - buscar_acervo: pesquisa nos projetos, documentos e anexos do GED. Use quando a pergunta envolver o conteúdo de um documento, memorial, projeto ou contrato anexado. Se a busca não retornar nada, diga que não encontrou no acervo.
+- simular_replanejamento: roda o cenário e devolve o impacto (datas em cascata, curva de faturamento, alertas contratuais) SEM gravar nada. Use SEMPRE antes de propor uma revisão — inclusive quando o usuário já disser o que quer fazer. Leia o resultado e comente com os números.
+- aplicar_replanejamento: PROPÕE gravar a revisão. Só use depois de simular e de o usuário concordar com o cenário. Exige motivo. O usuário ainda confirma num cartão antes de executar.
 - criar_tarefa, criar_rotina, registrar_decisao: PROPÕEM uma ação — o usuário confirma num cartão antes de executar. Use quando a conversa levar naturalmente a uma ação concreta, ou quando o usuário disser que decidiu algo (registre a decisão). Nunca proponha mais de 3 ações por resposta.
 - Minutas de comunicação formal (Cl. 17.1): escreva o texto diretamente na resposta, pronto para copiar, com campos [ENTRE COLCHETES] para o que você não souber.
 
@@ -42,6 +51,53 @@ const FERRAMENTAS = [
       type: 'object',
       properties: { consulta: { type: 'string', description: 'Termos de busca em português, ex.: "piso industrial fck"' } },
       required: ['consulta'],
+    },
+  },
+  {
+    name: 'simular_replanejamento',
+    description: 'Simula um replanejamento de cronograma: propaga as datas pelas dependências, recalcula a curva de faturamento por mês e aponta alertas contratuais. NÃO grava nada. Use antes de qualquer proposta de revisão.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        obra_id: { type: 'number', description: 'ID da obra' },
+        ajustes: {
+          type: 'array',
+          description: 'Eventos a mover e suas novas datas de início',
+          items: {
+            type: 'object',
+            properties: {
+              evento_id: { type: 'string', description: 'ID do evento, ex.: E01' },
+              novo_inicio: { type: 'string', description: 'Nova data de início em AAAA-MM-DD' },
+            },
+            required: ['evento_id', 'novo_inicio'],
+          },
+        },
+      },
+      required: ['obra_id', 'ajustes'],
+    },
+  },
+  {
+    name: 'aplicar_replanejamento',
+    description: 'Propõe gravar uma revisão de cronograma (as datas previstas; o baseline contratual nunca muda). O usuário confirma antes de executar. Só use depois de simular.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        obra_id: { type: 'number' },
+        ajustes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              evento_id: { type: 'string' },
+              novo_inicio: { type: 'string', description: 'AAAA-MM-DD' },
+            },
+            required: ['evento_id', 'novo_inicio'],
+          },
+        },
+        motivo: { type: 'string', description: 'Por que o cronograma está sendo revisado — fica no registro permanente' },
+        detalhe: { type: 'string' },
+      },
+      required: ['obra_id', 'ajustes', 'motivo'],
     },
   },
   {
@@ -94,6 +150,10 @@ function rotuloAcao(tool: string, input: any) {
   if (tool === 'criar_tarefa') return `Criar tarefa: ${input.descricao}${input.prazo ? ` (prazo ${input.prazo})` : ''}`;
   if (tool === 'criar_rotina') return `Criar rotina ${input.frequencia}: ${input.titulo}`;
   if (tool === 'registrar_decisao') return `Registrar decisão: ${input.titulo}`;
+  if (tool === 'aplicar_replanejamento') {
+    const n = (input.ajustes ?? []).length;
+    return `Aplicar revisão de cronograma: ${n} evento(s) movido(s) — ${input.motivo}`;
+  }
   return tool;
 }
 
@@ -109,6 +169,35 @@ async function executarBusca(consulta: string, papel: string, obras: number[]) {
   return data.map((r: any) =>
     `[${ORIG[r.origem] ?? r.origem} #${r.origem_id}] "${r.titulo}"${r.obra_id ? ` (obra ${r.obra_id})` : ' (empresa)'}\n${String(r.trecho).replace(/>>/g, '«').replace(/<</g, '»')}`
   ).join('\n\n');
+}
+
+/** Roda a simulação de replanejamento sem gravar nada. */
+async function executarSimulacao(input: any, obrasPermitidas: number[], papel: string) {
+  const obraId = Number(input?.obra_id);
+  const ajustes = Array.isArray(input?.ajustes) ? input.ajustes : [];
+  if (!obraId || !ajustes.length) return 'Simulação inválida: informe a obra e ao menos um ajuste.';
+  if (papel !== 'admin' && !obrasPermitidas.includes(obraId)) return 'Sem acesso a essa obra.';
+  for (const a of ajustes) {
+    if (!a?.evento_id || !/^\d{4}-\d{2}-\d{2}$/.test(String(a?.novo_inicio ?? ''))) {
+      return `Ajuste inválido em "${a?.evento_id}": a data deve estar em AAAA-MM-DD.`;
+    }
+  }
+
+  const db = supabaseAdmin();
+  const [{ data: eventos }, { data: deps }, { data: obra }] = await Promise.all([
+    db.from('eventos').select('id, obra_id, etapa, descricao, status, valor_bruto, base_inicio, base_fim, base_mes, prev_inicio, prev_fim, real_inicio, real_fim, duracao_dias, critico').eq('obra_id', obraId).order('id'),
+    db.from('evento_dependencias').select('evento_id, depende_de, tipo, folga_dias').eq('obra_id', obraId),
+    db.from('obras').select('codigo, entrega_final, valor_global').eq('id', obraId).single(),
+  ]);
+  if (!obra) return 'Obra não encontrada.';
+  if (!eventos?.length) return 'A obra não tem eventos cadastrados.';
+
+  const semData = (eventos as any[]).filter(e => !e.base_inicio && !e.prev_inicio).length;
+  const imp = simular(eventos as EventoCron[], (deps ?? []) as Dependencia[], ajustes, obra as any);
+  if (!imp.diff.length && semData) {
+    return `Os eventos ainda não têm datas cadastradas (${semData} de ${eventos.length} sem data). O cronograma precisa das datas do baseline antes de qualquer replanejamento — isso se faz em Cronograma → "Datas do baseline".`;
+  }
+  return impactoEmTexto(imp);
 }
 
 export async function POST(req: Request) {
@@ -276,6 +365,10 @@ export async function POST(req: Request) {
             if (u.name === 'buscar_acervo') {
               emitir({ t: 'busca', v: input.consulta ?? '' });
               const res = await executarBusca(String(input.consulta ?? ''), papel, obrasPermitidas);
+              resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
+            } else if (u.name === 'simular_replanejamento') {
+              emitir({ t: 'busca', v: 'simulando o replanejamento' });
+              const res = await executarSimulacao(input, obrasPermitidas, papel);
               resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
             } else {
               const acao = { id: `${Date.now()}_${acoesPropostas.length}`, tool: u.name, input, rotulo: rotuloAcao(u.name, input), status: 'pendente' };

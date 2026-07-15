@@ -18,7 +18,7 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
 
   const [obras, eventos, pedidos, cotacoes, desvios, docs, fvs, rdos, rotinas, ocs, metas] = await Promise.all([
     filtro(db.from('painel_ceo').select('*'), 'obra_id').then((r: any) => r.data ?? []),
-    filtro(db.from('eventos').select('id, obra_id, etapa, status, valor_bruto, valor_glosa, mes, atualizado_em')).then((r: any) => r.data ?? []),
+    filtro(db.from('eventos').select('id, obra_id, etapa, status, valor_bruto, valor_glosa, mes, base_inicio, base_fim, prev_inicio, prev_fim, real_fim, duracao_dias, critico, atualizado_em')).then((r: any) => r.data ?? []),
     filtro(db.from('pedidos_materiais').select('*')).then((r: any) => r.data ?? []),
     db.from('cotacoes').select('*').then((r: any) => r.data ?? []),
     filtro(db.from('desvio_etapa').select('*')).then((r: any) => r.data ?? []),
@@ -38,6 +38,11 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
     ]);
     fin = { lancs: l ?? [], saldo: Number(c?.saldo_inicial ?? 0) };
   }
+
+  const [depsCron, revisoes] = await Promise.all([
+    filtro(db.from('evento_dependencias').select('obra_id, evento_id, depende_de, tipo, folga_dias')).then((r: any) => r.data ?? []),
+    filtro(db.from('cronograma_revisoes').select('obra_id, numero, motivo, origem, criado_em, impacto').order('numero', { ascending: false }).limit(10)).then((r: any) => r.data ?? []),
+  ]);
 
   let decisoes: any[] = [];
   if (usuarioId) {
@@ -92,6 +97,39 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
   L.push(`\n=== MEDIÇÕES ===`);
   L.push(`  Total de eventos: ${eventos.length} | Aprovados: ${aprovados.length} | Em validação: ${emValidacao.length} | Pendentes: ${eventos.filter((e: any) => e.status === 'pendente').length}`);
   emValidacao.forEach((e: any) => L.push(`  AGUARDANDO VALIDAÇÃO: ${e.id} — ${e.etapa} — ${fmt(e.valor_bruto)}`));
+
+  // ---- cronograma: baseline x replanejado
+  const comData = eventos.filter((e: any) => e.base_inicio || e.prev_inicio);
+  L.push(`\n=== CRONOGRAMA (baseline contratual x replanejado) ===`);
+  if (!comData.length) {
+    L.push('  Os eventos ainda NAO tem datas cadastradas. Sem isso nao ha como simular replanejamento nem calcular desvio de prazo.');
+    L.push('  Onde resolver: Cronograma → "Datas do baseline". O baseline e gravado uma vez e nunca mais muda.');
+  } else {
+    L.push('  Regra: antecipar/atrasar a execucao move o evento de medicao junto (o faturamento acompanha o fisico).');
+    L.push('  O baseline (base_*) e imutavel. Replanejar = mover as datas previstas (prev_*).');
+    comData.slice(0, 30).forEach((e: any) => {
+      const prevI = e.prev_inicio ?? e.base_inicio;
+      const desvio = e.base_inicio && prevI
+        ? Math.round((new Date(prevI + 'T12:00:00').getTime() - new Date(e.base_inicio + 'T12:00:00').getTime()) / 86400000) : 0;
+      L.push(`  ${e.id} ${e.etapa} (${fmt(e.valor_bruto)}) [${e.status}]${e.critico ? ' CRITICO' : ''}`);
+      L.push(`     baseline: ${dt(e.base_inicio)} → ${dt(e.base_fim)} | previsto: ${dt(prevI)} → ${dt(e.prev_fim ?? e.base_fim)}${desvio !== 0 ? ` | desvio ${desvio > 0 ? '+' : ''}${desvio}d` : ''}${e.real_fim ? ` | concluido em ${dt(e.real_fim)}` : ''}`);
+    });
+    if (comData.length > 30) L.push(`  … e mais ${comData.length - 30} evento(s).`);
+  }
+
+  if (depsCron.length) {
+    L.push(`\n=== PRECEDENCIAS (o que puxa o que) ===`);
+    depsCron.slice(0, 25).forEach((d: any) =>
+      L.push(`  ${d.evento_id} depende de ${d.depende_de} (${d.tipo}${d.folga_dias ? `, folga ${d.folga_dias}d` : ''})`));
+  } else if (comData.length) {
+    L.push('\n  Sem precedencias cadastradas: antecipar um evento NAO puxa os seguintes automaticamente. Cadastre em Cronograma → Precedencias.');
+  }
+
+  if (revisoes.length) {
+    L.push(`\n=== REVISOES DE CRONOGRAMA JA APLICADAS ===`);
+    revisoes.forEach((r: any) =>
+      L.push(`  R${String(r.numero).padStart(2, '0')} (${dt(String(r.criado_em).slice(0, 10))}, ${r.origem}): ${r.motivo}${r.impacto?.dias_entrega ? ` — entrega ${r.impacto.dias_entrega > 0 ? '+' : ''}${r.impacto.dias_entrega}d` : ''}`));
+  }
 
   // ---- compras
   const aguardando = pedidos.filter((p: any) => p.status === 'enviado');

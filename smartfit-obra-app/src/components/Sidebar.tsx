@@ -23,6 +23,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
     { titulo: 'Contrato', itens: [
       { href: '/visao', label: 'Visão da Obra', ic: '▤' },
       { href: '/cronograma', label: 'Cronograma', ic: '▦', badge: badges.medicoes },
+      ...(gestor ? [{ href: '/replanejamento', label: 'Replanejamento', ic: '◫' }] : []),
       { href: '/medicoes', label: 'Faturamento', ic: '▩' },
       ...(gestor ? [{ href: '/financeiro', label: 'Financeiro', ic: '▣', badge: badges.financeiro }] : []),
     ]},
