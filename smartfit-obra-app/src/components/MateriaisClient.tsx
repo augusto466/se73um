@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { PEDIDO_STATUS, fmtBRL, fmtData, numeroPedido } from '@/lib/contrato';
+import Anexos from './Anexos';
 
 type Item = { descricao: string; unidade: string; qtd: string };
 type Cot = { fornecedor: string; cnpj: string; valor_total: string; prazo_entrega: string; condicoes_pagamento: string; frete: string; observacoes: string };
@@ -243,6 +244,9 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
                           </tbody>
                         </table></div>
                         <p className="hint" style={{ margin: '6px 0 10px' }}>★ menor preço. A escolha não precisa ser o menor valor — prazo e condições podem justificar (registre na observação da aprovação).</p>
+
+                        <div className="fg" style={{ marginBottom: 10 }}><label>Anexos (PDFs das cotações, pedido de compra, NF)</label>
+                          <Anexos entidade="pedido" entidadeId={String(p.id)} obraId={obraId} /></div>
 
                         {p.motivo_decisao && <div className="alert info"><b>Decisão registrada</b>{p.motivo_decisao}</div>}
                         {p.compra_info && <div className="alert info"><b>Compra efetuada</b>Pedido de compra: {p.compra_info.pedido_compra || '—'} · NF: {p.compra_info.nf || '—'} · Data: {fmtData(p.compra_info.data)}</div>}

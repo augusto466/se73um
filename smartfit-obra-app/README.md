@@ -14,6 +14,9 @@ Aplicação web completa com **login por usuário**, **banco compartilhado**, **
 | **Rotinas** | Tarefas recorrentes com geração automática de ocorrências e medição de aderência |
 | **Qualidade (FVS)** | Fichas de verificação por disciplina, com normas técnicas; evidência para medição |
 | **Metas** | Indicadores com alvo × realizado, cálculo automático a partir dos dados reais |
+| **Projetos (GED)** | Biblioteca por disciplina com controle de revisão: nova revisão obsoleta a anterior |
+| **Documentos** | Certidões, apólices e licenças com validade e alerta de vencimento |
+| **Anexos** | Arquivos em pedidos, RDOs, FVS e medições
 | Login e papéis | Contratante aprova/glosa medições e valida conformidade; Contratada executa e submete; Admin cria acessos |
 | Cronograma E01–E25 | Status, dossiê de 7 documentos (Cl. 3.4), critério de aceite, glosa com valor |
 | Faturamento | Boletim consolidado: bruto, glosa, retenção 10%, líquido, split 65/35 |

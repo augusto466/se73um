@@ -10,6 +10,7 @@ const TIPO_INFO: Record<string, { rotulo: string; cor: string; href: string }> =
   medicao:    { rotulo: 'MEDIÇÃO',    cor: 'st-valid', href: '/cronograma' },
   pedido:     { rotulo: 'COMPRA',     cor: 'st-valid', href: '/materiais' },
   financeiro: { rotulo: 'FINANCEIRO', cor: 'st-pend',  href: '/financeiro' },
+  documento:  { rotulo: 'DOCUMENTO',  cor: 'st-risk',  href: '/documentos' },
 };
 
 export default function MeuDiaClient({ itens, obras, perfil }: { itens: any[]; obras: any[]; perfil: any }) {

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { fmtData, fmtPct } from '@/lib/contrato';
+import Anexos from './Anexos';
 
 const RES: Record<string, [string, string]> = {
   em_andamento: ['EM ANDAMENTO', 'st-exec'],
@@ -162,6 +163,8 @@ export default function QualidadeClient({ modelos, inspecoesIniciais, eventos, o
                               style={{ border: '1px solid var(--line-strong)', borderRadius: 4, padding: '5px 7px', width: 220, fontSize: 12 }} />
                           </div>
                         ))}
+                        <div className="fg" style={{ marginTop: 10 }}><label>Evidências (fotos, laudos, certificados)</label>
+                          <Anexos entidade="fvs" entidadeId={String(i.id)} obraId={obraId} /></div>
                         {i.pendencias && <div className="alert warn" style={{ marginTop: 10 }}><b>Pendências a corrigir</b><span style={{ whiteSpace: 'pre-wrap' }}>{i.pendencias}</span></div>}
                         <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {i.resultado === 'em_andamento' && <button className="btn" disabled={ocupado} onClick={e => { e.stopPropagation(); finalizar(i); }}>Finalizar inspeção</button>}

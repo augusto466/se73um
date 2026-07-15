@@ -13,11 +13,13 @@ export default function NavTabs({ papel }: { papel: string }) {
     ['/cronograma', 'Cronograma & Medições'],
     ['/medicoes', 'Faturamento'],
     ['/materiais', 'Materiais & Compras'],
+    ['/projetos', 'Projetos'],
+    ['/documentos', 'Documentos'],
     ['/qualidade', 'Qualidade'],
     ['/tarefas', 'Tarefas'],
     ['/rotinas', 'Rotinas'],
     ['/diario', 'Diário de Obras'],
-    // Oculto por decisão comercial — reativar removendo o comentário:
+    // Oculto por decisão comercial:
     // ['/validacoes', 'Validações Contratuais'],
   ];
   if (gestor) tabs.push(['/financeiro', 'Financeiro'], ['/metas', 'Metas']);

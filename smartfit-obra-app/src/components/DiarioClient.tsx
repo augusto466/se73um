@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { fmtData } from '@/lib/contrato';
+import Anexos from './Anexos';
 
 export default function DiarioClient({ registrosIniciais, obraId }: { registrosIniciais: any[]; obraId: number }) {
   const [regs, setRegs] = useState(registrosIniciais);
@@ -46,9 +47,13 @@ export default function DiarioClient({ registrosIniciais, obraId }: { registrosI
             <h3 style={{fontFamily:'var(--mono)',textTransform:'none'}}>RDO · {fmtData(d.data)}</h3>
             <span className="hint">Clima: {d.clima} · Efetivo: {d.efetivo ?? 0} pessoas · Registro: {d.responsavel ?? '—'}</span>
           </div>
-          <div className="bd" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-            <div className="fg"><label>Atividades executadas</label><p style={{fontSize:13,whiteSpace:'pre-wrap'}}>{d.atividades}</p></div>
-            <div className="fg"><label>Ocorrências / impedimentos</label><p style={{fontSize:13,whiteSpace:'pre-wrap'}}>{d.ocorrencias ?? 'Sem ocorrências.'}</p></div>
+          <div className="bd">
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+              <div className="fg"><label>Atividades executadas</label><p style={{fontSize:13,whiteSpace:'pre-wrap'}}>{d.atividades}</p></div>
+              <div className="fg"><label>Ocorrências / impedimentos</label><p style={{fontSize:13,whiteSpace:'pre-wrap'}}>{d.ocorrencias ?? 'Sem ocorrências.'}</p></div>
+            </div>
+            <div className="fg"><label>Relatório fotográfico (Cl. 3.4)</label>
+              <Anexos entidade="diario" entidadeId={String(d.id)} obraId={obraId} compacto /></div>
           </div>
         </div>
       ))}

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { DOCS_PADRAO, STATUS_LABEL, fmtBRL } from '@/lib/contrato';
+import Anexos from './Anexos';
 
 type Evento = any;
 
@@ -78,6 +79,8 @@ export default function EventosClient({ eventosIniciais, papel, obra }: { evento
                       <div className="detail" style={{border:0,padding:4}}>
                         <div>
                           <div className="fg"><label>Critério de aceite</label><p style={{fontSize:13}}>{ev.criterio}</p></div>
+                          <div className="fg" style={{marginTop:10}}><label>Arquivos da medição</label>
+                            <Anexos entidade="evento" entidadeId={`${obra.id}:${ev.id}`} obraId={obra.id} compacto /></div>
                           <div className="fg" style={{marginTop:10}}><label>Documentos obrigatórios (Cl. 3.4)</label>
                             <div className="doclist">
                               {DOCS_PADRAO.map((d, i) => (
