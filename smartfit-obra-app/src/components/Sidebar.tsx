@@ -20,6 +20,9 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
       ...(gestor ? [{ href: '/painel-ceo', label: 'Cockpit', ic: '◉' }] : []),
       { href: '/obras', label: 'Obras', ic: '⬢' },
     ]},
+    ...(gestor ? [{ titulo: 'Comercial', itens: [
+      { href: '/comercial', label: 'Pipeline', ic: '◇' },
+    ]}] : []),
     { titulo: 'Contrato', itens: [
       { href: '/visao', label: 'Visão da Obra', ic: '▤' },
       { href: '/cronograma', label: 'Cronograma', ic: '▦', badge: badges.medicoes },

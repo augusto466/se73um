@@ -39,9 +39,10 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
     fin = { lancs: l ?? [], saldo: Number(c?.saldo_inicial ?? 0) };
   }
 
-  const [colabs, centros, metricasCentro, depsCron, revisoes] = await Promise.all([
+  const [colabs, centros, oportunidades, metricasCentro, depsCron, revisoes] = await Promise.all([
     db.from('colaboradores').select('id, nome, funcao, empresa, vinculo, centro_id').eq('ativo', true).order('nome').then((r: any) => r.data ?? []),
     db.from('centros_custo').select('id, nome, tipo').eq('ativo', true).order('ordem').then((r: any) => r.data ?? []),
+    gestor ? db.from('oportunidades').select('id, codigo, titulo, cliente, origem, estagio, valor_estimado, probabilidade, prazo_proposta, data_decisao, motivo_perda').order('atualizado_em', { ascending: false }).limit(30).then((r: any) => r.data ?? []) : Promise.resolve([]),
     db.from('metricas_centro_total').select('*').then((r: any) => r.data ?? []),
     filtro(db.from('evento_dependencias').select('obra_id, evento_id, depende_de, tipo, folga_dias')).then((r: any) => r.data ?? []),
     filtro(db.from('cronograma_revisoes').select('obra_id, numero, motivo, origem, criado_em, impacto').order('numero', { ascending: false }).limit(10)).then((r: any) => r.data ?? []),
@@ -86,6 +87,26 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
     L.push(`  ${c.id}: ${c.nome} (${c.tipo})${nums}`);
   });
 
+  // ---- funil comercial (só gestor)
+  if (gestor && oportunidades.length) {
+    const abertas = oportunidades.filter((o: any) => !['assinada','perdida'].includes(o.estagio));
+    const pond = abertas.reduce((s: number, o: any) => s + Number(o.valor_estimado || 0) * Number(o.probabilidade) / 100, 0);
+    const pipe = abertas.reduce((s: number, o: any) => s + Number(o.valor_estimado || 0), 0);
+    L.push('\n=== FUNIL COMERCIAL ===');
+    L.push(`  ${abertas.length} oportunidade(s) em aberto | pipeline ${fmt(pipe)} | ponderado ${fmt(pond)}`);
+    const hj = new Date().toISOString().slice(0, 10);
+    abertas.forEach((o: any) => {
+      const atraso = o.prazo_proposta && o.prazo_proposta < hj && ['contato','premissas','orcamento'].includes(o.estagio);
+      L.push(`  [${o.codigo}] ${o.titulo} — ${o.cliente} | ${o.estagio} (${o.probabilidade}%) | ${fmt(o.valor_estimado)}${o.prazo_proposta ? ` | proposta até ${dt(o.prazo_proposta)}${atraso ? ' ATRASADA' : ''}` : ''}${o.data_decisao ? ` | decide em ${dt(o.data_decisao)}` : ''}`);
+    });
+    const perdidas = oportunidades.filter((o: any) => o.estagio === 'perdida');
+    const ganhas = oportunidades.filter((o: any) => o.estagio === 'assinada');
+    if (ganhas.length || perdidas.length) {
+      L.push(`  Fechadas: ${ganhas.length} ganha(s), ${perdidas.length} perdida(s)${(ganhas.length+perdidas.length) ? ` — taxa de ganho ${Math.round(ganhas.length/(ganhas.length+perdidas.length)*100)}%` : ''}`);
+      perdidas.slice(0, 5).forEach((o: any) => L.push(`    PERDIDA: ${o.titulo} — ${o.motivo_perda ?? 'motivo não registrado'}`));
+    }
+  }
+
   // ---- carteira
   L.push('\n=== CARTEIRA DE OBRAS ===');
   obras.forEach((o: any) => {
@@ -96,7 +117,11 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
     L.push(`  Cliente: ${o.cliente ?? '—'} | Status: ${o.status} | Entrega: ${dt(o.entrega_final)}`);
     L.push(`  Valor global: ${fmt(o.valor_global)} | Medido: ${fmt(o.medido)} (${pct(o.avanco_pct)})`);
     L.push(`  Avanço planejado até o mês ${o.mes_atual}: ${pct(planPct)} | Gap: ${pct(Number(o.avanco_pct) - planPct)}`);
-    L.push(`  Orçamento de custo: ${fmt(o.custo_orcado)} | Comprado até agora: ${fmt(o.custo_comprado)}`);
+    L.push(`  Orçamento de CUSTO: ${fmt(o.custo_orcado)} (sem BDI) | PREÇO orçado: ${fmt(o.preco_orcado)} | Comprado até agora: ${fmt(o.custo_comprado)}`);
+    if (Number(o.custo_orcado) > 0) {
+      const mg = Number(o.valor_global) - Number(o.custo_orcado);
+      L.push(`  Margem de contrato: ${fmt(mg)} (${(mg / Number(o.valor_global) * 100).toFixed(1)}% do valor global) — medida contra o CUSTO, não contra o preço.`);
+    }
     if (gestor) L.push(`  A receber: ${fmt(o.a_receber)} | A pagar: ${fmt(o.a_pagar)}`);
     L.push(`  Pendências: ${o.em_validacao} medição(ões) em validação, ${o.pedidos_aguardando} pedido(s) aguardando aprovação`);
   });

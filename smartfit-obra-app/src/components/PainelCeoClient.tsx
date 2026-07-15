@@ -143,13 +143,13 @@ export default function PainelCeoClient({ obras, desvios, abc, fornecedores, sal
               <div className="tblwrap"><table>
                 <thead><tr><th>Etapa</th><th className="num">Orçado</th><th className="num">Contratado</th><th className="num">Medido</th><th className="num">Comprado</th><th className="num">Desvio</th><th>Consumo do orçamento</th></tr></thead>
                 <tbody>
-                  {desviosVis.filter(d => Number(d.valor_orcado) > 0).map((d, i) => {
-                    const cons = Number(d.valor_orcado) ? Number(d.valor_comprado) / Number(d.valor_orcado) * 100 : 0;
+                  {desviosVis.filter(d => Number(d.custo_orcado) > 0).map((d, i) => {
+                    const cons = Number(d.custo_orcado) ? Number(d.valor_comprado) / Number(d.custo_orcado) * 100 : 0;
                     const cor = cons > 100 ? 'var(--risk)' : cons > 85 ? 'var(--warn)' : 'var(--ok)';
                     return (
                       <tr key={i} style={Number(d.desvio_compra) > 0 ? { background: 'var(--risk-soft)' } : undefined}>
                         <td><b>{d.etapa}</b></td>
-                        <td className="num">{fmtBRL(Number(d.valor_orcado))}</td>
+                        <td className="num">{fmtBRL(Number(d.custo_orcado))}</td>
                         <td className="num">{fmtBRL(Number(d.valor_contratado))}</td>
                         <td className="num">{fmtBRL(Number(d.valor_medido))}</td>
                         <td className="num">{Number(d.valor_comprado) ? fmtBRL(Number(d.valor_comprado)) : '—'}</td>

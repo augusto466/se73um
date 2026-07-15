@@ -23,13 +23,19 @@ export function analisarMargem(obras: any[], desvios: any[]) {
   const margemPct = medido > 0 ? margem / medido * 100 : 0;
 
   const porObra = obras.map(o => {
-    const dObra = desvios.filter(d => d.obra_id === o.obra_id && Number(d.valor_orcado) > 0);
-    const orcadoTotal = dObra.reduce((s, d) => s + Number(d.valor_orcado), 0);
+    // CUSTO, não preço. O orçamento guarda os dois: valor_orcado tem BDI
+    // embutido; custo_orcado é o custo puro. Margem se mede contra custo —
+    // subtrair preço de preço produz margem falsa.
+    const dObra = desvios.filter(d => d.obra_id === o.obra_id && Number(d.custo_orcado) > 0);
+    const custoTotal = dObra.reduce((s, d) => s + Number(d.custo_orcado), 0);
+    const precoTotal = dObra.reduce((s, d) => s + Number(d.valor_orcado || 0), 0);
+    const orcadoTotal = custoTotal;   // compatibilidade com quem lê este campo
     const comCompra = dObra.filter(d => Number(d.valor_comprado) > 0);
     const compradoAte = dObra.reduce((s, d) => s + Number(d.valor_comprado || 0), 0);
+    const bdiEfetivo = custoTotal > 0 ? (precoTotal / custoTotal - 1) * 100 : null;
 
-    // margem de contrato: o que a proposta previa (valor global − orçamento de custo)
-    const margemContrato = Number(o.valor_global) - orcadoTotal;
+    // margem de contrato: o que a proposta previa (valor global − CUSTO orçado)
+    const margemContrato = Number(o.valor_global) - custoTotal;
     const margemContratoPct = Number(o.valor_global) > 0 ? margemContrato / Number(o.valor_global) * 100 : 0;
 
     const projetavel = comCompra.length >= MIN_ETAPAS_COMPRADAS;
@@ -40,11 +46,11 @@ export function analisarMargem(obras: any[], desvios: any[]) {
 
     if (projetavel) {
       // fator ponderado pelo valor orçado das etapas já compradas (não média simples)
-      const orcComCompra = comCompra.reduce((s, d) => s + Number(d.valor_orcado), 0);
+      const orcComCompra = comCompra.reduce((s, d) => s + Number(d.custo_orcado), 0);
       const cmpComCompra = comCompra.reduce((s, d) => s + Number(d.valor_comprado), 0);
       fator = orcComCompra > 0 ? cmpComCompra / orcComCompra : 1;
       // etapas não compradas seguem o orçado corrigido pelo fator observado
-      const orcRestante = orcadoTotal - orcComCompra;
+      const orcRestante = custoTotal - orcComCompra;
       custoProjetado = cmpComCompra + orcRestante * fator;
       margemProjetada = Number(o.valor_global) - custoProjetado;
       margemProjPct = Number(o.valor_global) > 0 ? margemProjetada / Number(o.valor_global) * 100 : 0;
@@ -56,7 +62,7 @@ export function analisarMargem(obras: any[], desvios: any[]) {
       .sort((a, b) => b.desvio - a.desvio);
 
     return {
-      ...o, orcadoTotal, compradoAte, margemContrato, margemContratoPct,
+      ...o, orcadoTotal, custoTotal, precoTotal, bdiEfetivo, compradoAte, margemContrato, margemContratoPct,
       projetavel, fator, custoProjetado, margemProjetada, margemProjPct, sangria,
       etapasCompradas: comCompra.length, etapasTotal: dObra.length,
     };

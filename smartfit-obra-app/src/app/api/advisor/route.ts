@@ -1,6 +1,7 @@
 import { supabaseServer, supabaseAdmin } from '@/lib/supabase/server';
 import { montarContexto } from '@/lib/contexto';
 import { simular, impactoEmTexto, type EventoCron, type Dependencia } from '@/lib/replanejamento';
+import { gerar as gerarOrcamento, compararComReal, type ModeloItem } from '@/lib/orcamento';
 import { MODELO, outputConfig, cacheBreakpoint, montarSystem, logUso } from '@/lib/ia';
 
 export const maxDuration = 60;
@@ -16,6 +17,17 @@ COMO VOCÊ RESPONDE:
 - Quando recomendar algo, diga O QUE fazer, ONDE no sistema, e QUAL o impacto esperado.
 - Se o dado não existir no retrato, diga que não tem base — não invente número, não estime sem avisar.
 - Priorize sempre: margem > caixa > prazo > decisão travada.
+
+MARGEM — COMO SE MEDE (não erre isto):
+- O orçamento tem CUSTO e PREÇO separados. O preço é o custo + BDI (~25%), e é o que foi para a proposta.
+- Margem SEMPRE se mede contra o CUSTO: margem = valor_global − custo_orcado. Nunca subtraia preço de preço.
+- Ao falar de margem, diga de qual você fala: margem de contrato (o que a proposta previa) ou margem projetada (com o custo já comprado).
+
+COMERCIAL:
+- O funil é: contato → premissas → orçamento → proposta → negociação → assinada.
+- O orçamento sai de um modelo paramétrico: premissas (área, prazo, padrão) × índices extraídos de obras reais. Ele não substitui análise — tira do zero.
+- Proposta ganha vira obra com o orçamento dentro, sem redigitação.
+- Quando o usuário falar de uma obra nova ou de proposta, ofereça simular o orçamento antes de qualquer palpite de preço.
 - Quando pedirem sua opinião, dê. Discorde se os dados apontarem outra coisa. Você é conselheiro, não bajulador.
 - Respeite as DECISÕES JÁ TOMADAS listadas no retrato: não sugira de novo o que já foi decidido ou descartado.
 - Nunca invente cláusula contratual. As que você conhece deste contrato (TK-328/2026, Invest Market × Modo Modular):
@@ -44,6 +56,7 @@ VOCÊ NÃO É SÓ CONSELHEIRO — VOCÊ CONSTRÓI:
 
 SUAS FERRAMENTAS:
 - buscar_acervo: pesquisa nos projetos, documentos e anexos do GED. Use quando a pergunta envolver o conteúdo de um documento, memorial, projeto ou contrato anexado. Se a busca não retornar nada, diga que não encontrou no acervo.
+- simular_orcamento: gera o orçamento de uma obra nova a partir das premissas (área de projeção, laje, prazo, padrão). Roda na hora, sem gravar. Devolve custo, BDI, preço, preço/m² e o comparativo com o custo real de obras já executadas. Use SEMPRE que o usuário perguntar quanto custa/quanto cobrar por uma obra — nunca chute preço de cabeça.
 - simular_replanejamento: roda o cenário e devolve o impacto (datas em cascata, curva de faturamento, alertas contratuais) SEM gravar nada. Use SEMPRE antes de propor uma revisão — inclusive quando o usuário já disser o que quer fazer. Leia o resultado e comente com os números.
 - aplicar_replanejamento: PROPÕE gravar a revisão. Só use depois de simular e de o usuário concordar com o cenário. Exige motivo. O usuário ainda confirma num cartão antes de executar.
 - buscar_pessoa: encontra colaboradores pelo nome/função. Roda na hora, sem confirmação. Use SEMPRE antes de atribuir trabalho a alguém.
@@ -160,6 +173,22 @@ const FERRAMENTAS = [
         evento_id: { type: 'string', description: 'Evento de medição vinculado, ex.: E03' },
       },
       required: ['descricao'],
+    },
+  },
+  {
+    name: 'simular_orcamento',
+    description: 'Gera o orçamento de uma obra a partir das premissas, usando os modelos paramétricos calibrados com obras reais. Executa na hora, sem gravar nada. Use sempre que perguntarem preço/custo de obra nova.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        area_projecao: { type: 'number', description: 'Área de projeção em m² — obrigatória, é o principal driver' },
+        area_laje: { type: 'number', description: 'Área de laje/mezanino em m²' },
+        pe_direito: { type: 'number' },
+        prazo_meses: { type: 'number' },
+        padrao_acabamento: { type: 'string', enum: ['simples', 'medio', 'alto'] },
+        tipo_obra: { type: 'string', description: 'galpao_metalico (padrão), bts_academia' },
+      },
+      required: ['area_projecao'],
     },
   },
   {
@@ -287,10 +316,52 @@ async function detalharPedido(pedidoId: number, obrasPermitidas: number[], papel
 
   let orcado: any = null;
   if (p.evento_id) {
-    const { data: o } = await db.from('orcamento').select('etapa, valor_orcado').eq('obra_id', p.obra_id).eq('evento_id', p.evento_id).maybeSingle();
+    const { data: o } = await db.from('orcamento').select('etapa, custo_orcado, valor_orcado').eq('obra_id', p.obra_id).eq('evento_id', p.evento_id).maybeSingle();
     orcado = o;
   }
   return { pedido: p, cotacoes: cots ?? [], vencedora: venc, orcado };
+}
+
+/** Gera o orçamento paramétrico de uma obra nova — sem gravar nada. */
+async function executarOrcamento(input: any) {
+  const area = Number(input?.area_projecao);
+  if (!area || area <= 0) return 'A área de projeção é obrigatória e é o principal driver do orçamento. Pergunte ao usuário.';
+
+  const db = supabaseAdmin();
+  const tipo = input.tipo_obra || 'galpao_metalico';
+  const { data: modelo } = await db.from('modelos_orcamento')
+    .select('id, nome, area_referencia').eq('tipo_obra', tipo).eq('ativo', true).limit(1).maybeSingle();
+  if (!modelo) return `Não há modelo de orçamento para "${tipo}". Modelos existem em Comercial; sem modelo, não há como orçar — não invente preço.`;
+
+  const { data: itens } = await db.from('modelo_itens').select('*').eq('modelo_id', modelo.id).order('ordem');
+  if (!itens?.length) return 'O modelo não tem itens cadastrados.';
+
+  const orc = gerarOrcamento(itens as ModeloItem[], {
+    area_projecao: area,
+    area_laje: input.area_laje ? Number(input.area_laje) : null,
+    pe_direito: input.pe_direito ? Number(input.pe_direito) : null,
+    prazo_meses: input.prazo_meses ? Number(input.prazo_meses) : null,
+    padrao_acabamento: input.padrao_acabamento ?? 'medio',
+  });
+
+  const { data: real } = await db.from('desvio_etapa').select('etapa, custo_orcado, valor_comprado');
+  const alertas = compararComReal(orc, (real ?? []) as any);
+
+  const brl = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const L: string[] = [];
+  L.push(`Modelo: ${modelo.nome} (calibrado com obra de ${modelo.area_referencia} m²)`);
+  L.push(`Premissas: ${area} m² de projeção${input.area_laje ? `, ${input.area_laje} m² de laje` : ''}${input.prazo_meses ? `, ${input.prazo_meses} meses` : ''}, padrão ${input.padrao_acabamento ?? 'medio'}`);
+  L.push(`\nCUSTO: ${brl(orc.custo_total)} | BDI ${orc.bdi_efetivo.toFixed(1)}%: ${brl(orc.preco_total - orc.custo_total)} | PREÇO: ${brl(orc.preco_total)}`);
+  L.push(`Custo/m²: ${brl(orc.custo_m2 ?? 0)} | Preço/m²: ${brl(orc.preco_m2 ?? 0)}`);
+  L.push('\nPor etapa (preço):');
+  orc.etapas.forEach(e => L.push(`  ${e.etapa}: ${brl(e.preco)} (${e.pct}%)`));
+  if (orc.avisos.length) { L.push('\nAvisos:'); orc.avisos.forEach(a => L.push(`  - ${a}`)); }
+  if (alertas.length) {
+    L.push('\nHISTÓRICO DE OBRAS REAIS (use isto, é o que evita repetir erro):');
+    alertas.forEach(a => L.push(`  - ${a.etapa}: ${a.nota}`));
+  }
+  L.push('\nEsta é uma estimativa paramétrica para balizar conversa. A proposta formal se monta em Comercial, onde dá para ajustar item a item.');
+  return L.join('\n');
 }
 
 /** Roda a simulação de replanejamento sem gravar nada. */
@@ -517,6 +588,10 @@ export async function POST(req: Request) {
               emitir({ t: 'busca', v: `procurando "${input.termo ?? ''}"` });
               const res = await executarBuscaPessoa(String(input.termo ?? ''));
               resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
+            } else if (u.name === 'simular_orcamento') {
+              emitir({ t: 'busca', v: `orçando ${input.area_projecao} m²` });
+              const res = await executarOrcamento(input);
+              resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
             } else if (u.name === 'simular_replanejamento') {
               emitir({ t: 'busca', v: 'simulando o replanejamento' });
               const res = await executarSimulacao(input, obrasPermitidas, papel);
@@ -545,7 +620,7 @@ export async function POST(req: Request) {
                     })),
                     valor: Number(d.vencedora.valor_total),
                     fornecedor: d.vencedora.fornecedor,
-                    orcado: d.orcado ? { etapa: d.orcado.etapa, valor: Number(d.orcado.valor_orcado) } : null,
+                    orcado: d.orcado ? { etapa: d.orcado.etapa, valor: Number(d.orcado.custo_orcado) } : null,
                   },
                   status: 'pendente',
                 };

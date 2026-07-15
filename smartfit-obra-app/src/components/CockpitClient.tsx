@@ -127,7 +127,7 @@ export default function CockpitClient(p: any) {
                       return (
                         <tr key={i}>
                           <td><b>{s.etapa}</b></td>
-                          <td className="num">{fmtC(Number(d?.valor_orcado ?? 0))}</td>
+                          <td className="num">{fmtC(Number(d?.custo_orcado ?? 0))}</td>
                           <td className="num">{fmtC(Number(d?.valor_comprado ?? 0))}</td>
                           <td className="num" style={{ color: 'var(--brand)', fontWeight: 600 }}>−{fmtC(s.desvio)} ({fmtPct(s.pct)})</td>
                         </tr>
@@ -281,13 +281,13 @@ export default function CockpitClient(p: any) {
             <table>
               <thead><tr><th>Etapa</th><th className="num">Orçado</th><th className="num">Comprado</th><th className="num">Desvio</th><th>Consumo</th></tr></thead>
               <tbody>
-                {p.desvios.filter((d: any) => Number(d.valor_orcado) > 0).map((d: any, i: number) => {
-                  const cons = Number(d.valor_comprado) / Number(d.valor_orcado) * 100;
+                {p.desvios.filter((d: any) => Number(d.custo_orcado) > 0).map((d: any, i: number) => {
+                  const cons = Number(d.valor_comprado) / Number(d.custo_orcado) * 100;
                   const cor = cons > 100 ? 'var(--brand)' : cons > 85 ? 'var(--warn)' : 'var(--ok)';
                   return (
                     <tr key={i}>
                       <td><b>{d.etapa}</b></td>
-                      <td className="num">{fmtC(Number(d.valor_orcado))}</td>
+                      <td className="num">{fmtC(Number(d.custo_orcado))}</td>
                       <td className="num">{Number(d.valor_comprado) ? fmtC(Number(d.valor_comprado)) : '—'}</td>
                       <td className="num" style={{ fontWeight: 600, color: Number(d.desvio_compra) > 0 ? 'var(--brand)' : 'var(--gray)' }}>
                         {Number(d.valor_comprado) ? `${Number(d.desvio_compra) > 0 ? '+' : ''}${fmtC(Number(d.desvio_compra))}` : '—'}
