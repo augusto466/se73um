@@ -15,6 +15,7 @@ const TIPO_INFO: Record<string, { rotulo: string; cor: string; href: string }> =
 export default function MeuDiaClient({ itens, obras, perfil }: { itens: any[]; obras: any[]; perfil: any }) {
   const [lista, setLista] = useState(itens);
   const [ocupado, setOcupado] = useState(false);
+  const [verAdiante, setVerAdiante] = useState(false);
   const supabase = supabaseBrowser();
   const hoje = new Date().toISOString().slice(0, 10);
   const em7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
@@ -30,6 +31,14 @@ export default function MeuDiaClient({ itens, obras, perfil }: { itens: any[]; o
 
   const decisoes = lista.filter(i => ['medicao', 'pedido'].includes(i.tipo));
 
+  async function concluirTarefa(item: any) {
+    setOcupado(true);
+    const { error } = await supabase.from('tarefas').update({ coluna: 3 }).eq('id', Number(item.id));
+    setOcupado(false);
+    if (error) { alert(error.message); return; }
+    setLista(l => l.filter(x => !(x.tipo === 'tarefa' && x.id === item.id)));
+  }
+
   async function concluirRotina(item: any) {
     setOcupado(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -41,14 +50,16 @@ export default function MeuDiaClient({ itens, obras, perfil }: { itens: any[]; o
     setLista(l => l.filter(x => !(x.tipo === 'rotina' && x.id === item.id)));
   }
 
-  const Bloco = ({ titulo, itens, destaque }: { titulo: string; itens: any[]; destaque?: string }) => {
+  const Bloco = ({ titulo, itens, destaque, colapsavel, aberto, onToggle }:
+    { titulo: string; itens: any[]; destaque?: string; colapsavel?: boolean; aberto?: boolean; onToggle?: () => void }) => {
     if (!itens.length) return null;
     return (
       <div className="panel">
-        <div className="hd">
+        <div className="hd" style={colapsavel ? { cursor: 'pointer' } : undefined} onClick={colapsavel ? onToggle : undefined}>
           <h3 style={destaque ? { color: destaque } : undefined}>{titulo} · {itens.length}</h3>
+          {colapsavel && <button className="mini">{aberto ? 'ocultar ▲' : 'mostrar ▼'}</button>}
         </div>
-        <div className="bd" style={{ padding: 0 }}>
+        {(!colapsavel || aberto) && <div className="bd" style={{ padding: 0 }}>
           {itens.sort((a, b) => (a.vencimento ?? '9').localeCompare(b.vencimento ?? '9')).map((i, k) => {
             const info = TIPO_INFO[i.tipo];
             const atrasado = i.vencimento && i.vencimento < hoje;
@@ -66,11 +77,16 @@ export default function MeuDiaClient({ itens, obras, perfil }: { itens: any[]; o
                 {i.prioridade === 'alta' && <span className="stamp st-risk" style={{ fontSize: 9.5 }}>ALTA</span>}
                 {i.tipo === 'rotina'
                   ? <button className="mini" disabled={ocupado} onClick={() => concluirRotina(i)}>✓ concluir</button>
+                  : i.tipo === 'tarefa'
+                  ? <>
+                      <button className="mini" disabled={ocupado} onClick={() => concluirTarefa(i)}>✓ concluir</button>
+                      <Link href={info.href} className="mini" style={{ textDecoration: 'none' }}>abrir →</Link>
+                    </>
                   : <Link href={info.href} className="mini" style={{ textDecoration: 'none' }}>abrir →</Link>}
               </div>
             );
           })}
-        </div>
+        </div>}
       </div>
     );
   };
@@ -101,7 +117,7 @@ export default function MeuDiaClient({ itens, obras, perfil }: { itens: any[]; o
         <Bloco titulo="⚠ Atrasado" itens={grupos.atrasado} destaque="var(--risk)" />
         <Bloco titulo="Hoje" itens={grupos.hoje} />
         <Bloco titulo="Próximos 7 dias" itens={grupos.semana} />
-        <Bloco titulo="Adiante" itens={grupos.depois} />
+        <Bloco titulo="Adiante (próximos 30 dias)" itens={grupos.depois} colapsavel aberto={verAdiante} onToggle={() => setVerAdiante(v => !v)} />
         {lista.length === 0 && (
           <div className="panel"><div className="bd">
             <p className="hint">Nenhuma pendência. Ou está tudo em dia, ou falta cadastrar rotinas (aba Rotinas).</p>
