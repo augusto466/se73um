@@ -35,11 +35,11 @@ export default function ValidacoesClient({ itensIniciais, papel, obraId }: { ite
                 onChange={e => marcar(c, e.target.checked)}
                 style={{accentColor:'var(--ok)',width:16,height:16,marginTop:2}} />
               <div style={{flex:1}}>
-                <div style={{fontWeight:600,fontSize:13, ...(c.concluido ? {color:'var(--muted)',textDecoration:'line-through'} : {})}}>{c.titulo}</div>
+                <div style={{fontWeight:600,fontSize:13, ...(c.concluido ? {color:'var(--gray)',textDecoration:'line-through'} : {})}}>{c.titulo}</div>
                 <div className="hint">{c.detalhe}</div>
                 <div style={{display:'flex',gap:10,marginTop:5,alignItems:'center',flexWrap:'wrap'}}>
                   <span className="clause">{c.clausula}</span>
-                  <span style={{fontFamily:'var(--mono)',fontSize:11,color: venc ? 'var(--risk)' : 'var(--steel)'}}>
+                  <span style={{fontFamily:'var(--mono)',fontSize:11,color: venc ? 'var(--risk)' : 'var(--gray)'}}>
                     {c.prazo ? `Prazo: ${fmtData(c.prazo)}${venc ? ' · VENCIDO' : ''}` : 'Obrigação contínua'}
                   </span>
                   <span className="hint">Resp.: {c.responsavel}</span>

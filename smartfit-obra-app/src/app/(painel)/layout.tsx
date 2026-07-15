@@ -1,43 +1,45 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { listarObras, obraAtiva } from '@/lib/obra';
-import NavTabs from '@/components/NavTabs';
-import SairBtn from '@/components/SairBtn';
-import SeletorObra from '@/components/SeletorObra';
+import Sidebar from '@/components/Sidebar';
+import Topbar from '@/components/Topbar';
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const supabase = supabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: perfil } = await supabase.from('profiles').select('*').eq('id', user!.id).single();
   const papel = perfil?.papel ?? 'contratada';
-  const papelLabel = papel === 'admin' ? 'Administrador' : papel === 'contratante' ? 'Contratante' : 'Contratada';
+  const gestor = papel === 'admin' || papel === 'contratante';
 
   const [obras, ativa] = await Promise.all([listarObras(), obraAtiva()]);
+  const hoje = new Date().toISOString().slice(0, 10);
+  const em7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+  // contadores para os selos da sidebar
+  const [meuDia, medicoes, pedidos, financeiro, documentos] = await Promise.all([
+    supabase.from('meu_dia').select('*', { count: 'exact', head: true }).lte('vencimento', hoje),
+    supabase.from('eventos').select('*', { count: 'exact', head: true }).eq('status', 'validacao'),
+    supabase.from('pedidos_materiais').select('*', { count: 'exact', head: true }).eq('status', 'enviado'),
+    gestor
+      ? supabase.from('lancamentos').select('*', { count: 'exact', head: true }).in('status', ['previsto', 'confirmado']).lte('vencimento', em7)
+      : Promise.resolve({ count: 0 }),
+    supabase.from('documentos').select('*', { count: 'exact', head: true }).lt('validade', hoje),
+  ]);
+
+  const badges = {
+    meuDia: meuDia.count ?? 0,
+    medicoes: medicoes.count ?? 0,
+    pedidos: pedidos.count ?? 0,
+    financeiro: financeiro.count ?? 0,
+    documentos: documentos.count ?? 0,
+  };
 
   return (
-    <>
-      <header className="carimbo">
-        <div className="in">
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <div style={{ width: 44, height: 44, background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, borderRadius: 4, flex: 'none' }}>TK</div>
-            <div>
-              <h1>{ativa ? ativa.nome : 'Painel de Acompanhamento de Obras'}</h1>
-              <div className="sub">
-                {ativa
-                  ? `Contrato ${ativa.codigo}${ativa.local ? ' · ' + ativa.local : ''}${ativa.entrega_final ? ' · Entrega: ' + new Date(ativa.entrega_final + 'T12:00:00').toLocaleDateString('pt-BR') : ''}`
-                  : 'Selecione uma obra para começar'}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <SeletorObra obras={obras} ativaId={ativa?.id ?? null} />
-            <span className="role-badge">{papelLabel}</span>
-            <span style={{ fontSize: 12, color: '#B9C2CA' }}>{perfil?.nome ?? user?.email}</span>
-            <SairBtn />
-          </div>
-        </div>
-      </header>
-      <NavTabs papel={papel} />
-      <main>{children}</main>
-    </>
+    <div className="app">
+      <Sidebar papel={papel} perfil={perfil} obras={obras} obraAtiva={ativa?.id ?? null} badges={badges} />
+      <div className="main">
+        <Topbar obra={ativa} />
+        <div className="content">{children}</div>
+      </div>
+    </div>
   );
 }

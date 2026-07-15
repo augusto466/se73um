@@ -62,7 +62,7 @@ export default function TarefasClient({ tarefasIniciais, eventos, obraId }: { ta
       <div className="kanban">
         {COLS.map((c, ci) => (
           <div key={ci} className="kcol">
-            <div className="khd"><b>{c}</b><span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--muted)'}}>{tarefas.filter(t=>t.coluna===ci).length}</span></div>
+            <div className="khd"><b>{c}</b><span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--gray)'}}>{tarefas.filter(t=>t.coluna===ci).length}</span></div>
             <div className="kbd">
               {tarefas.filter(t => t.coluna === ci).map(t => {
                 const atras = t.prazo && t.prazo < hoje && t.coluna < 3;

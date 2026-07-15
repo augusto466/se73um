@@ -151,7 +151,7 @@ export default function QualidadeClient({ modelos, inspecoesIniciais, eventos, o
                                   className={`mini ${r.resultado === v ? 'sel-' + v : ''}`}
                                   disabled={i.resultado !== 'em_andamento'}
                                   onClick={e => { e.stopPropagation(); responder(i, idx, 'resultado', v as string); }}
-                                  style={r.resultado === v ? { background: v === 'c' ? 'var(--ok)' : v === 'nc' ? 'var(--risk)' : 'var(--muted)', color: '#fff', borderColor: 'transparent' } : undefined}>
+                                  style={r.resultado === v ? { background: v === 'c' ? 'var(--ok)' : v === 'nc' ? 'var(--risk)' : 'var(--gray)', color: '#fff', borderColor: 'transparent' } : undefined}>
                                   {t}
                                 </button>
                               ))}

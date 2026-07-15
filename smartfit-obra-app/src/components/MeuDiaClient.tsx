@@ -94,27 +94,32 @@ export default function MeuDiaClient({ itens, obras, perfil }: { itens: any[]; o
 
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+  const primeiro = (perfil?.nome ?? '').split(' ')[0];
+
+  const resumo = grupos.atrasado.length > 0
+    ? <><b>{grupos.atrasado.length} item(ns) atrasado(s)</b> e {grupos.hoje.length} para hoje.</>
+    : grupos.hoje.length > 0
+    ? <>{grupos.hoje.length} item(ns) para hoje. Nada atrasado.</>
+    : <>Nada atrasado nem vencendo hoje. O dia é seu para pensar.</>;
 
   return (
     <>
-      <div style={{ marginBottom: 14 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700 }}>{saudacao}, {perfil?.nome?.split(' ')[0] ?? ''}</h2>
-        <p className="hint">
-          {grupos.atrasado.length > 0
-            ? `${grupos.atrasado.length} item(ns) atrasado(s) · ${grupos.hoje.length} para hoje`
-            : grupos.hoje.length > 0 ? `${grupos.hoje.length} item(ns) para hoje. Nada atrasado. 👌`
-            : 'Nada atrasado nem vencendo hoje. Bom dia de trabalho. 🎉'}
-        </p>
-      </div>
+      <section className="cock-hero">
+        <div className="saud">{saudacao}{primeiro ? `, ${primeiro}` : ''}</div>
+        <div className="resumo">{resumo}</div>
+        <div className="cock-strip">
+          <div className={`it ${grupos.atrasado.length ? 'risco' : ''}`}>
+            <div className="n">{grupos.atrasado.length}</div><div className="l">Atrasados</div>
+          </div>
+          <div className="it"><div className="n">{grupos.hoje.length}</div><div className="l">Para hoje</div></div>
+          <div className={`it ${decisoes.length ? 'risco' : ''}`}>
+            <div className="n">{decisoes.length}</div><div className="l">Sua decisão</div>
+          </div>
+          <div className="it"><div className="n">{grupos.semana.length}</div><div className="l">Próx. 7 dias</div></div>
+        </div>
+      </section>
 
-      <div className="kpis" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-        <div className={`kpi ${grupos.atrasado.length ? 'acc' : 'okk'}`}><div className="lbl">Atrasados</div><div className="val">{grupos.atrasado.length}</div></div>
-        <div className="kpi blu"><div className="lbl">Para hoje</div><div className="val">{grupos.hoje.length}</div></div>
-        <div className="kpi wrn"><div className="lbl">Esperando sua decisão</div><div className="val">{decisoes.length}</div><div className="foot">medições e compras</div></div>
-        <div className="kpi"><div className="lbl">Próximos 7 dias</div><div className="val">{grupos.semana.length}</div></div>
-      </div>
-
-      <div style={{ marginTop: 14 }}>
+      <div>
         <Bloco titulo="⚠ Atrasado" itens={grupos.atrasado} destaque="var(--risk)" />
         <Bloco titulo="Hoje" itens={grupos.hoje} />
         <Bloco titulo="Próximos 7 dias" itens={grupos.semana} />

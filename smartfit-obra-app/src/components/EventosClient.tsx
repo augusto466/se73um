@@ -75,7 +75,7 @@ export default function EventosClient({ eventosIniciais, papel, obra }: { evento
                     <td><span className={`stamp ${cls}`}><span className="dot" />{lbl}</span></td>
                   </tr>
                   {aberto === ev.id && (
-                    <tr><td colSpan={6} style={{background:'var(--paper-2)'}}>
+                    <tr><td colSpan={6} style={{background:'var(--surface-2)'}}>
                       <div className="detail" style={{border:0,padding:4}}>
                         <div>
                           <div className="fg"><label>Critério de aceite</label><p style={{fontSize:13}}>{ev.criterio}</p></div>

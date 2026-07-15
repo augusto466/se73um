@@ -208,7 +208,7 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
                       <td><span className={`stamp ${cls}`}><span className="dot" />{lbl}</span></td>
                     </tr>
                     {aberto === p.id && (
-                      <tr><td colSpan={6} style={{ background: 'var(--paper-2)' }}>
+                      <tr><td colSpan={6} style={{ background: 'var(--surface-2)' }}>
                         {p.justificativa && <p style={{ fontSize: 13, marginBottom: 10 }}><b>Justificativa:</b> {p.justificativa}</p>}
 
                         <div className="fg"><label>Itens do pedido</label></div>
@@ -227,7 +227,7 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
                               const ehMenor = Number(c.valor_total) === menor;
                               const ehVenc = c.id === p.cotacao_vencedora;
                               return (
-                                <tr key={c.id} style={ehVenc ? { background: 'var(--ok-soft)' } : ehMenor ? { background: 'var(--blue-soft)' } : undefined}>
+                                <tr key={c.id} style={ehVenc ? { background: 'var(--ok-soft)' } : ehMenor ? { background: 'var(--info-soft)' } : undefined}>
                                   {podeDecidir && p.status === 'enviado' && (
                                     <td><button className="mini" disabled={ocupado} onClick={() => decidir(p, 'aprovado', c.id)}>✓ escolher</button></td>
                                   )}

@@ -116,8 +116,8 @@ export default function PainelCeoClient({ obras, desvios, abc, fornecedores, sal
                       <td className="num">{fmtBRL(Number(o.medido))}</td>
                       <td style={{ minWidth: 150 }}>
                         <div className="bar" style={{ position: 'relative' }}>
-                          <i style={{ width: `${Math.min(100, real)}%`, background: atras ? 'var(--risk)' : 'var(--accent)' }} />
-                          <span style={{ position: 'absolute', left: `${Math.min(100, plan)}%`, top: -2, width: 2, height: 12, background: 'var(--steel)' }} title={`planejado ${fmtPct(plan)}`} />
+                          <i style={{ width: `${Math.min(100, real)}%`, background: atras ? 'var(--risk)' : 'var(--brand)' }} />
+                          <span style={{ position: 'absolute', left: `${Math.min(100, plan)}%`, top: -2, width: 2, height: 12, background: 'var(--gray)' }} title={`planejado ${fmtPct(plan)}`} />
                         </div>
                         <div className="hint" style={{ marginTop: 3, color: atras ? 'var(--risk)' : undefined }}>
                           {fmtPct(real)} real · {fmtPct(plan)} planejado {atras ? '⚠ atrasado' : ''}
@@ -153,7 +153,7 @@ export default function PainelCeoClient({ obras, desvios, abc, fornecedores, sal
                         <td className="num">{fmtBRL(Number(d.valor_contratado))}</td>
                         <td className="num">{fmtBRL(Number(d.valor_medido))}</td>
                         <td className="num">{Number(d.valor_comprado) ? fmtBRL(Number(d.valor_comprado)) : '—'}</td>
-                        <td className="num" style={{ fontWeight: 600, color: Number(d.desvio_compra) > 0 ? 'var(--risk)' : 'var(--muted)' }}>
+                        <td className="num" style={{ fontWeight: 600, color: Number(d.desvio_compra) > 0 ? 'var(--risk)' : 'var(--gray)' }}>
                           {Number(d.valor_comprado) ? `${Number(d.desvio_compra) > 0 ? '+' : ''}${fmtBRL(Number(d.desvio_compra))}` : '—'}
                         </td>
                         <td style={{ minWidth: 130 }}>

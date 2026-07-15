@@ -97,7 +97,7 @@ export default function PortfolioClient({ itens, modelos, papel }:
             <div key={o.id} className="panel obra-card">
               <div className="hd">
                 <div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted)' }}>{o.codigo}</div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--gray)' }}>{o.codigo}</div>
                   <h3 style={{ textTransform: 'none', fontSize: 14, marginTop: 2 }}>{o.nome}</h3>
                 </div>
                 <span className={`stamp ${cls}`}><span className="dot" />{lbl}</span>
@@ -105,8 +105,8 @@ export default function PortfolioClient({ itens, modelos, papel }:
               <div className="bd">
                 <div className="hint" style={{ marginBottom: 10 }}>{o.cliente ?? '—'}{o.local ? ` · ${o.local}` : ''}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-                  <div><div className="lbl" style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.8px', fontWeight: 600 }}>Valor global</div><div style={{ fontFamily: 'var(--mono)', fontWeight: 600 }}>{fmtBRL(o.valor_global)}</div></div>
-                  <div><div className="lbl" style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.8px', fontWeight: 600 }}>Medido</div><div style={{ fontFamily: 'var(--mono)', fontWeight: 600 }}>{fmtBRL(o.medido)}</div></div>
+                  <div><div className="lbl" style={{ fontSize: 10, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.8px', fontWeight: 600 }}>Valor global</div><div style={{ fontFamily: 'var(--mono)', fontWeight: 600 }}>{fmtBRL(o.valor_global)}</div></div>
+                  <div><div className="lbl" style={{ fontSize: 10, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '.8px', fontWeight: 600 }}>Medido</div><div style={{ fontFamily: 'var(--mono)', fontWeight: 600 }}>{fmtBRL(o.medido)}</div></div>
                 </div>
                 <div className="bar" style={{ marginBottom: 4 }}><i className={Number(o.pct) >= 100 ? 'g' : ''} style={{ width: `${Math.min(100, Number(o.pct))}%` }} /></div>
                 <div className="hint" style={{ display: 'flex', justifyContent: 'space-between' }}>
