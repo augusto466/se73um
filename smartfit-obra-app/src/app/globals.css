@@ -309,3 +309,20 @@ label.mini{cursor:pointer}
 .adv-ped-t{font-size:12.5px;font-weight:600;margin-bottom:2px}
 .adv-cot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 8px;border-radius:5px;font-size:11.5px;border:1px solid transparent}
 .adv-cot.venc{border-color:var(--brand);background:var(--brand-soft)}
+.adv-sel{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 6px}
+.adv-sel label{display:flex;flex-direction:column;gap:2px;flex:1;min-width:120px}
+.adv-sel label span{font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gray)}
+.adv-sel select{font-size:11.5px;padding:5px 6px;border:1px solid var(--line-strong);border-radius:5px;background:var(--surface)}
+.adv-sel select:focus{border-color:var(--brand);outline:none}
+.cc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px}
+.cc-card{text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;transition:border-color .12s,background .12s}
+.cc-card:hover{border-color:var(--brand)}
+.cc-card.on{border-color:var(--brand);background:var(--brand-soft)}
+.cc-card.risco{border-left:3px solid var(--brand)}
+.cc-n{font-size:11.5px;font-weight:600;margin-bottom:4px}
+.cc-nums{display:flex;flex-wrap:wrap;gap:8px;font-size:10.5px;color:var(--gray)}
+.cc-nums b{color:var(--ink);font-family:var(--mono)}
+.cc-atr b{color:var(--brand)}
+.cc-bar{height:3px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
+.cc-bar div{height:100%;background:var(--brand)}
+.cc-tag{font-size:9.5px;padding:1px 5px;border-radius:99px;background:var(--line);color:var(--gray-2)}

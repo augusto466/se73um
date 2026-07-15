@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         responsavel,
         prazo: input.prazo || null,
         prioridade: ['alta', 'media', 'baixa'].includes(input.prioridade) ? input.prioridade : 'media',
-        centro_id: input.centro_id ?? (obraId ? 'cc_operacoes' : null),
+        centro_id: input.centro_id || (obraId ? 'cc_operacoes' : 'cc_admin'),
         obra_id: obraId,
         evento_id: eventoId,
         coluna: 0,
@@ -94,6 +94,33 @@ export async function POST(req: Request) {
         await supa.from('colaborador_obras').insert({ colaborador_id: novo.id, obra_id: obraColab });
       }
       resultado = `${novo.nome} cadastrado (id ${novo.id}). Já dá para atribuir tarefas.`;
+
+    } else if (tool === 'criar_obra') {
+      const { data: perfil } = await supa.from('profiles').select('papel').eq('id', user.id).single();
+      if (perfil?.papel !== 'admin') throw new Error('Somente admin cadastra obra nova.');
+      if (!input.codigo || !input.nome) throw new Error('Informe ao menos o código e o nome da obra.');
+
+      const { data: ja } = await supa.from('obras').select('id').eq('codigo', String(input.codigo).trim()).maybeSingle();
+      if (ja) throw new Error(`Já existe uma obra com o código ${input.codigo}.`);
+
+      const { data: nova, error } = await supa.from('obras').insert({
+        codigo: String(input.codigo).trim(),
+        nome: String(input.nome).trim(),
+        cliente: input.cliente ?? null,
+        contratada: input.contratada ?? null,
+        local: input.local ?? null,
+        valor_global: Number(input.valor_global ?? 0),
+        retencao_pct: Number(input.retencao_pct ?? 0.10),
+        assinatura: input.assinatura || null,
+        entrega_final: input.entrega_final || null,
+        status: 'ativa',
+        criado_por: user.id,
+      }).select('id, codigo').single();
+      if (error) throw new Error(error.message);
+
+      // sem vínculo, nem o admin enxerga a obra no seletor
+      await supa.from('obra_usuarios').insert({ obra_id: nova.id, usuario_id: user.id });
+      resultado = `Obra ${nova.codigo} cadastrada (id ${nova.id}). Falta o cronograma de eventos e o baseline — isso é em Cronograma e Replanejamento.`;
 
     } else if (tool === 'aprovar_pedido') {
       const pid = Number(input.pedido_id);

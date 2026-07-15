@@ -37,7 +37,8 @@ VOCÊ NÃO É SÓ CONSELHEIRO — VOCÊ CONSTRÓI:
 - Quando o usuário pedir algo que vira trabalho no sistema, MONTE. Não descreva o que ele deveria fazer: proponha a coisa pronta.
 - Decomponha pedidos compostos. "Pedir ao Cleiton para mobilizar a máquina, nivelar o terreno e aplicar brita" são tarefas encadeadas, com responsável, prazo, centro de custo e obra — proponha a sequência, não uma tarefa genérica.
 - Resolva nomes antes de agir: use buscar_pessoa para achar o colaborador. Se não existir, proponha cadastrar. Se houver mais de um com o mesmo nome, PERGUNTE — nunca chute.
-- Centro de custo é dimensão da EMPRESA (Operações, RH, Jurídico, Comercial...), não da obra. Trabalho de obra normalmente é cc_operacoes; compra é cc_suprimentos; contrato/jurídico é cc_juridico. Na dúvida, pergunte.
+- Centro de custo é OBRIGATÓRIO em toda tarefa e rotina. É dimensão da EMPRESA (Operações, RH, Jurídico, Comercial...), não da obra. SEMPRE preencha centro_id com o que fizer mais sentido: trabalho de obra → cc_operacoes; compra/cotação → cc_suprimentos; FVS/segurança → cc_qualidade; projeto → cc_projetos; contrato/notificação → cc_juridico; folha/pessoas → cc_rh; cobrança/caixa → cc_financeiro. O usuário corrige na lista suspensa do cartão se você errar — então escolha o mais provável e siga, não pergunte.
+- Você NÃO cadastra centro de custo. Os 13 existentes são estrutura fixa da empresa. Se nenhum servir, diga ao usuário e sugira o mais próximo.
 - Preencha o que dá para inferir e diga o que inferiu. Não pergunte o que já está no retrato.
 
 SUAS FERRAMENTAS:
@@ -46,6 +47,7 @@ SUAS FERRAMENTAS:
 - aplicar_replanejamento: PROPÕE gravar a revisão. Só use depois de simular e de o usuário concordar com o cenário. Exige motivo. O usuário ainda confirma num cartão antes de executar.
 - buscar_pessoa: encontra colaboradores pelo nome/função. Roda na hora, sem confirmação. Use SEMPRE antes de atribuir trabalho a alguém.
 - criar_tarefa, criar_rotina, registrar_decisao, cadastrar_colaborador: PROPÕEM uma ação — o usuário confirma num cartão. Para uma sequência de trabalho, proponha as tarefas na ordem (máx. 6 por resposta).
+- criar_obra: PROPÕE cadastrar uma obra nova. Use quando o usuário falar de um contrato/obra que ainda não existe no sistema. Peça os dados que faltarem antes de propor.
 - aprovar_pedido: PROPÕE aprovar um pedido de compra. O cartão mostra o pedido inteiro (cotações, valores, prazos, impacto no orçado) para o usuário conferir antes de confirmar. Se não houver cotação vencedora definida, NÃO use — pergunte qual cotação ele escolhe.
 
 O QUE VOCÊ NÃO FAZ, NUNCA:
@@ -160,6 +162,25 @@ const FERRAMENTAS = [
     },
   },
   {
+    name: 'criar_obra',
+    description: 'Propõe cadastrar uma obra nova no sistema. O usuário confirma. Use quando ele mencionar um contrato ou obra que ainda não existe.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        codigo: { type: 'string', description: 'Código do contrato, ex.: TK-329/2026' },
+        nome: { type: 'string', description: 'Nome da obra, ex.: BTS Smart Fit — Setor Bueno' },
+        cliente: { type: 'string', description: 'Contratante' },
+        contratada: { type: 'string', description: 'Construtora responsável' },
+        local: { type: 'string' },
+        valor_global: { type: 'number', description: 'Valor do contrato em reais' },
+        retencao_pct: { type: 'number', description: 'Retenção por medição (0.10 = 10%)' },
+        assinatura: { type: 'string', description: 'AAAA-MM-DD' },
+        entrega_final: { type: 'string', description: 'AAAA-MM-DD' },
+      },
+      required: ['codigo', 'nome'],
+    },
+  },
+  {
     name: 'aprovar_pedido',
     description: 'Propõe aprovar um pedido de compra. O cartão mostra as cotações e o impacto para o usuário conferir. Exige que o pedido tenha cotação vencedora definida.',
     input_schema: {
@@ -208,6 +229,7 @@ function rotuloAcao(tool: string, input: any) {
   if (tool === 'criar_rotina') return `Criar rotina ${input.frequencia}: ${input.titulo}`;
   if (tool === 'registrar_decisao') return `Registrar decisão: ${input.titulo}`;
   if (tool === 'cadastrar_colaborador') return `Cadastrar ${input.nome}${input.funcao ? ` — ${input.funcao}` : ''}`;
+  if (tool === 'criar_obra') return `Cadastrar obra ${input.codigo} — ${input.nome}`;
   if (tool === 'aprovar_pedido') return `Aprovar PM-${String(input.pedido_id).padStart(3, '0')}`;
   if (tool === 'aplicar_replanejamento') {
     const n = (input.ajustes ?? []).length;

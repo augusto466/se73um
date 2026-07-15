@@ -39,9 +39,10 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
     fin = { lancs: l ?? [], saldo: Number(c?.saldo_inicial ?? 0) };
   }
 
-  const [colabs, centros, depsCron, revisoes] = await Promise.all([
+  const [colabs, centros, metricasCentro, depsCron, revisoes] = await Promise.all([
     db.from('colaboradores').select('id, nome, funcao, empresa, vinculo, centro_id').eq('ativo', true).order('nome').then((r: any) => r.data ?? []),
     db.from('centros_custo').select('id, nome, tipo').eq('ativo', true).order('ordem').then((r: any) => r.data ?? []),
+    db.from('metricas_centro_total').select('*').then((r: any) => r.data ?? []),
     filtro(db.from('evento_dependencias').select('obra_id, evento_id, depende_de, tipo, folga_dias')).then((r: any) => r.data ?? []),
     filtro(db.from('cronograma_revisoes').select('obra_id, numero, motivo, origem, criado_em, impacto').order('numero', { ascending: false }).limit(10)).then((r: any) => r.data ?? []),
   ]);
@@ -76,8 +77,14 @@ export async function montarContexto(papel: string, obrasPermitidas: number[], u
       L.push(`  id ${c.id}: ${c.nome}${c.funcao ? ` — ${c.funcao}` : ''} (${c.vinculo}${c.empresa ? `, ${c.empresa}` : ''})${c.centro_id ? ` · ${c.centro_id}` : ''}`));
   }
 
-  L.push('\n=== CENTROS DE CUSTO (dimensao da EMPRESA, nao da obra) ===');
-  centros.forEach((c: any) => L.push(`  ${c.id}: ${c.nome} (${c.tipo})`));
+  L.push('\n=== CENTROS DE CUSTO (dimensao da EMPRESA, nao da obra) — OBRIGATORIO em toda tarefa ===');
+  centros.forEach((c: any) => {
+    const m = metricasCentro.find((x: any) => x.centro_id === c.id);
+    const nums = m && m.total > 0
+      ? ` — ${m.abertas} aberta(s)${m.atrasadas > 0 ? `, ${m.atrasadas} ATRASADA(S)` : ''}, ${m.concluidas} concluida(s)${m.pct_atraso != null && m.abertas > 0 ? ` (${m.pct_atraso}% em atraso)` : ''}`
+      : '';
+    L.push(`  ${c.id}: ${c.nome} (${c.tipo})${nums}`);
+  });
 
   // ---- carteira
   L.push('\n=== CARTEIRA DE OBRAS ===');

@@ -27,8 +27,22 @@ export default function Advisor() {
   const [verHist, setVerHist] = useState(false);
   const [historico, setHistorico] = useState<any[]>([]);
   const [anexos, setAnexos] = useState<AnexoLocal[]>([]);
+  const [centros, setCentros] = useState<any[]>([]);
+  const [obras, setObras] = useState<any[]>([]);
   const fim = useRef<HTMLDivElement>(null);
   const supabase = supabaseBrowser();
+
+  // centros e obras alimentam os seletores dos cartões — sem isso não dá para corrigir a inferência
+  useEffect(() => {
+    if (!aberto || centros.length) return;
+    (async () => {
+      const [{ data: c }, { data: o }] = await Promise.all([
+        supabase.from('centros_custo').select('id, nome, tipo').eq('ativo', true).order('ordem'),
+        supabase.from('obras').select('id, codigo, nome').order('codigo'),
+      ]);
+      setCentros(c ?? []); setObras(o ?? []);
+    })();
+  }, [aberto, centros.length, supabase]);
 
   useEffect(() => { fim.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, pensando, statusVivo]);
   useEffect(() => {
@@ -96,6 +110,13 @@ export default function Advisor() {
       r.onerror = () => rej(new Error('Falha ao ler o arquivo.'));
       r.readAsDataURL(f);
     });
+  }
+
+  /** Ajusta um campo da ação proposta antes de confirmar. */
+  function editarAcao(idxMsg: number, acaoId: string, campo: string, valor: any) {
+    setMsgs(ms => ms.map((m, i) => i !== idxMsg ? m : {
+      ...m, acoes: (m.acoes ?? []).map(a => a.id === acaoId ? { ...a, input: { ...a.input, [campo]: valor } } : a),
+    }));
   }
 
   async function confirmarAcao(idxMsg: number, acao: Acao) {
@@ -264,12 +285,37 @@ export default function Advisor() {
                           )}
                         </div>
                       )}
+                      {a.status === 'pendente' && ['criar_tarefa', 'criar_rotina', 'cadastrar_colaborador'].includes(a.tool) && (
+                        <div className="adv-sel">
+                          <label>
+                            <span>Centro de custo</span>
+                            <select value={a.input.centro_id ?? ''} onChange={e => editarAcao(i, a.id, 'centro_id', e.target.value || null)}>
+                              <option value="">— escolha —</option>
+                              {centros.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                            </select>
+                          </label>
+                          {a.tool !== 'cadastrar_colaborador' && (
+                            <label>
+                              <span>Obra</span>
+                              <select value={a.input.obra_id ?? ''} onChange={e => editarAcao(i, a.id, 'obra_id', e.target.value ? Number(e.target.value) : null)}>
+                                <option value="">Empresa · sem obra</option>
+                                {obras.map(o => <option key={o.id} value={o.id}>{o.codigo}</option>)}
+                              </select>
+                            </label>
+                          )}
+                        </div>
+                      )}
+
                       {a.status === 'pendente' && (
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn adv-acao-ok" onClick={() => confirmarAcao(i, a)}>Confirmar</button>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <button className="btn adv-acao-ok"
+                            disabled={['criar_tarefa', 'criar_rotina'].includes(a.tool) && !a.input.centro_id}
+                            onClick={() => confirmarAcao(i, a)}>Confirmar</button>
                           <button className="mini" onClick={() =>
                             setMsgs(ms => ms.map((x, j) => j !== i ? x : { ...x, acoes: (x.acoes ?? []).map(y => y.id === a.id ? { ...y, status: 'descartada' } : y) }))
                           }>Descartar</button>
+                          {['criar_tarefa', 'criar_rotina'].includes(a.tool) && !a.input.centro_id &&
+                            <span className="hint" style={{ color: 'var(--brand)' }}>escolha o centro de custo</span>}
                         </div>
                       )}
                       {a.status === 'executada' && <span className="hint" style={{ color: 'var(--ok, #2e9e5b)' }}>✓ executada</span>}
