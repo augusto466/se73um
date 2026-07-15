@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { fmtData } from '@/lib/contrato';
 
-export default function DiarioClient({ registrosIniciais }: { registrosIniciais: any[] }) {
+export default function DiarioClient({ registrosIniciais, obraId }: { registrosIniciais: any[]; obraId: number }) {
   const [regs, setRegs] = useState(registrosIniciais);
   const hoje = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({ data: hoje, clima: 'Bom / Bom', efetivo: '', responsavel: '', atividades: '', ocorrencias: '' });
@@ -15,7 +15,7 @@ export default function DiarioClient({ registrosIniciais }: { registrosIniciais:
     const { data, error } = await supabase.from('diario').insert({
       data: form.data, clima: form.clima, efetivo: Number(form.efetivo) || 0,
       responsavel: form.responsavel || null, atividades: form.atividades.trim(),
-      ocorrencias: form.ocorrencias.trim() || null, criado_por: user?.id,
+      ocorrencias: form.ocorrencias.trim() || null, criado_por: user?.id, obra_id: obraId,
     }).select().single();
     if (error) { alert(error.message); return; }
     setRegs(r => [data, ...r].sort((a, b) => b.data.localeCompare(a.data)));

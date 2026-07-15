@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const { data: perfil } = await supa.from('profiles').select('papel').eq('id', user.id).single();
   if (perfil?.papel !== 'admin') return NextResponse.json({ erro: 'Apenas administradores.' }, { status: 403 });
 
-  const { nome, email, papel } = await req.json();
+  const { nome, email, papel, empresa } = await req.json();
   if (!email || !['admin', 'contratante', 'contratada'].includes(papel)) {
     return NextResponse.json({ erro: 'Dados inválidos.' }, { status: 400 });
   }
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const senha = gerarSenha();
   const { data, error } = await admin.auth.admin.createUser({
     email, password: senha, email_confirm: true,
-    user_metadata: { nome, papel },
+    user_metadata: { nome, papel, empresa },
   });
   if (error) return NextResponse.json({ erro: error.message }, { status: 400 });
 
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
        <p>O administrador enviará sua senha temporária por canal seguro. Acesse: <a href="${process.env.NEXT_PUBLIC_APP_URL}/login">${process.env.NEXT_PUBLIC_APP_URL}/login</a></p>`);
   } catch { /* e-mail é cortesia; o acesso já foi criado */ }
 
-  const perfilNovo = { id: data.user.id, nome, email, papel, notificar: true, criado_em: new Date().toISOString() };
+  await admin.from('profiles').update({ empresa }).eq('id', data.user.id);
+  const perfilNovo = { id: data.user.id, nome, email, papel, empresa, notificar: true, criado_em: new Date().toISOString() };
   return NextResponse.json({ ok: true, senha, perfil: perfilNovo });
 }

@@ -1,12 +1,15 @@
 import EventosClient from '@/components/EventosClient';
 import { supabaseServer } from '@/lib/supabase/server';
+import { exigirObra, perfilAtual } from '@/lib/obra';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Cronograma() {
+  const obra = await exigirObra();
   const supabase = supabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user!.id).single();
-  const { data: eventos } = await supabase.from('eventos').select('*').order('mes').order('id');
-  return <EventosClient eventosIniciais={eventos ?? []} papel={perfil?.papel ?? 'contratada'} />;
+  const [perfil, { data: eventos }] = await Promise.all([
+    perfilAtual(),
+    supabase.from('eventos').select('*').eq('obra_id', obra.id).order('mes').order('id'),
+  ]);
+  return <EventosClient eventosIniciais={eventos ?? []} papel={perfil?.papel ?? 'contratada'} obra={obra} />;
 }

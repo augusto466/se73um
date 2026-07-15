@@ -9,6 +9,11 @@ export default async function Equipe() {
   const { data: { user } } = await supabase.auth.getUser();
   const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user!.id).single();
   if (perfil?.papel !== 'admin') redirect('/visao');
-  const { data: perfis } = await supabase.from('profiles').select('*').order('criado_em');
-  return <EquipeClient perfisIniciais={perfis ?? []} />;
+
+  const [{ data: perfis }, { data: obras }, { data: vinculos }] = await Promise.all([
+    supabase.from('profiles').select('*').order('criado_em'),
+    supabase.from('obras').select('id, codigo, nome').order('codigo'),
+    supabase.from('obra_usuarios').select('*'),
+  ]);
+  return <EquipeClient perfisIniciais={perfis ?? []} obras={obras ?? []} vinculosIniciais={vinculos ?? []} />;
 }

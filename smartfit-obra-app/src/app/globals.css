@@ -93,3 +93,9 @@ td.num,th.num{text-align:right;font-family:var(--mono);white-space:nowrap}
 .bar i{display:block;height:100%;background:var(--blue);border-radius:99px}
 .bar i.g{background:var(--ok)}
 .role-badge{font-family:var(--mono);font-size:10.5px;padding:2px 8px;border-radius:3px;background:#FBE9E0;color:var(--accent);border:1px solid #E9B49B}
+
+/* portfólio de obras */
+.obras-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.obra-card{margin-bottom:0;display:flex;flex-direction:column}
+.obra-card .hd{align-items:flex-start}
+.obra-card .bd{flex:1;display:flex;flex-direction:column}

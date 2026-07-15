@@ -5,7 +5,7 @@ import { fmtData } from '@/lib/contrato';
 
 const COLS = ['A fazer', 'Em execução', 'Em validação', 'Concluído'];
 
-export default function TarefasClient({ tarefasIniciais, eventos }: { tarefasIniciais: any[]; eventos: any[] }) {
+export default function TarefasClient({ tarefasIniciais, eventos, obraId }: { tarefasIniciais: any[]; eventos: any[]; obraId: number }) {
   const [tarefas, setTarefas] = useState(tarefasIniciais);
   const [form, setForm] = useState({ descricao: '', evento_id: '', responsavel: '', prioridade: 'media', prazo: '' });
   const supabase = supabaseBrowser();
@@ -17,7 +17,7 @@ export default function TarefasClient({ tarefasIniciais, eventos }: { tarefasIni
     const { data, error } = await supabase.from('tarefas').insert({
       descricao: form.descricao.trim(), evento_id: form.evento_id || null,
       responsavel: form.responsavel || null, prioridade: form.prioridade,
-      prazo: form.prazo || null, coluna: 0, criado_por: user?.id,
+      prazo: form.prazo || null, coluna: 0, criado_por: user?.id, obra_id: obraId,
     }).select().single();
     if (error) { alert(error.message); return; }
     setTarefas(t => [data, ...t]);

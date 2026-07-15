@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { fmtData } from '@/lib/contrato';
 
-export default function ValidacoesClient({ itensIniciais, papel }: { itensIniciais: any[]; papel: string }) {
+export default function ValidacoesClient({ itensIniciais, papel, obraId }: { itensIniciais: any[]; papel: string; obraId: number }) {
   const [itens, setItens] = useState(itensIniciais);
   const supabase = supabaseBrowser();
   const podeMarcar = papel === 'contratante' || papel === 'admin';
@@ -14,9 +14,9 @@ export default function ValidacoesClient({ itensIniciais, papel }: { itensInicia
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from('checklist')
       .update({ concluido: val, atualizado_por: user?.id, atualizado_em: new Date().toISOString() })
-      .eq('id', item.id);
+      .eq('id', item.id).eq('obra_id', obraId);
     if (error) { alert('Validação exclusiva do perfil Contratante.'); return; }
-    await supabase.from('auditoria').insert({ usuario: user?.id, acao: val ? 'conforme' : 'reaberto', entidade: 'checklist', entidade_id: item.id, detalhe: { titulo: item.titulo } });
+    await supabase.from('auditoria').insert({ usuario: user?.id, acao: val ? 'conforme' : 'reaberto', entidade: 'checklist', entidade_id: item.id, detalhe: { titulo: item.titulo }, obra_id: obraId });
     setItens(is => is.map(x => x.id === item.id ? { ...x, concluido: val } : x));
   }
 

@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const TABS = [
+const TABS: [string, string][] = [
   ['/visao', 'Visão Geral'],
   ['/cronograma', 'Cronograma & Medições'],
   ['/medicoes', 'Faturamento'],
@@ -15,7 +15,8 @@ const TABS = [
 
 export default function NavTabs({ papel }: { papel: string }) {
   const path = usePathname();
-  const tabs = papel === 'admin' ? [...TABS, ['/equipe', 'Equipe & Acessos']] : TABS;
+  const tabs: [string, string][] = [['/obras', 'Obras'], ...TABS];
+  if (papel === 'admin') tabs.push(['/equipe', 'Equipe & Acessos']);
   return (
     <nav className="tabs">
       <div className="in">

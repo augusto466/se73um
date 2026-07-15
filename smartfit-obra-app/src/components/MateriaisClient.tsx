@@ -10,8 +10,8 @@ const itemVazio = (): Item => ({ descricao: '', unidade: 'un', qtd: '' });
 const cotVazia = (): Cot => ({ fornecedor: '', cnpj: '', valor_total: '', prazo_entrega: '', condicoes_pagamento: '', frete: '', observacoes: '' });
 const num = (s: string) => Number(String(s).replace(/\./g, '').replace(',', '.')) || 0;
 
-export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eventos, papel }:
-  { pedidosIniciais: any[]; cotacoesIniciais: any[]; eventos: any[]; papel: string }) {
+export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eventos, papel, obraId }:
+  { pedidosIniciais: any[]; cotacoesIniciais: any[]; eventos: any[]; papel: string; obraId: number }) {
 
   const [pedidos, setPedidos] = useState(pedidosIniciais);
   const [cots, setCots] = useState(cotacoesIniciais);
@@ -33,7 +33,7 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
 
   async function audit(acao: string, id: number, detalhe: any) {
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('auditoria').insert({ usuario: user?.id, acao, entidade: 'pedidos_materiais', entidade_id: String(id), detalhe });
+    await supabase.from('auditoria').insert({ usuario: user?.id, acao, entidade: 'pedidos_materiais', entidade_id: String(id), detalhe, obra_id: obraId });
   }
 
   async function enviarPedido() {
@@ -50,7 +50,7 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
       titulo: form.titulo.trim(), evento_id: form.evento_id || null,
       necessidade: form.necessidade || null, justificativa: form.justificativa.trim() || null,
       itens: itensValidos.map(i => ({ descricao: i.descricao.trim(), unidade: i.unidade, qtd: num(i.qtd) })),
-      status: 'enviado', criado_por: user?.id,
+      status: 'enviado', criado_por: user?.id, obra_id: obraId,
     }).select().single();
     if (error || !pedido) { alert(error?.message ?? 'Falha ao criar o pedido.'); setOcupado(false); return; }
 
@@ -66,7 +66,7 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
 
     await audit('pedido_enviado', pedido.id, { titulo: pedido.titulo, cotacoes: cotsValidas.length });
     fetch('/api/notificar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'pedido_enviado', pedidoId: pedido.id }) }).catch(() => {});
+      body: JSON.stringify({ tipo: 'pedido_enviado', pedidoId: pedido.id, obraId }) }).catch(() => {});
 
     setPedidos(ps => [pedido, ...ps]);
     setCots(cs => [...cs, ...(cotsCriadas ?? [])]);
@@ -92,7 +92,7 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
     if (error) { alert('Decisão exclusiva do perfil Contratante.'); setOcupado(false); return; }
     await audit('pedido_' + status, p.id, { cotacao_vencedora: cotacaoId, motivo });
     fetch('/api/notificar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'pedido_decidido', pedidoId: p.id }) }).catch(() => {});
+      body: JSON.stringify({ tipo: 'pedido_decidido', pedidoId: p.id, obraId }) }).catch(() => {});
     setPedidos(ps => ps.map(x => x.id === p.id ? { ...x, status, cotacao_vencedora: cotacaoId ?? null, motivo_decisao: motivo } : x));
     setOcupado(false);
   }
@@ -109,7 +109,7 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
     if (error) { alert('Ação exclusiva do perfil Contratante.'); setOcupado(false); return; }
     await audit('compra_efetuada', p.id, compra_info);
     fetch('/api/notificar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'pedido_decidido', pedidoId: p.id }) }).catch(() => {});
+      body: JSON.stringify({ tipo: 'pedido_decidido', pedidoId: p.id, obraId }) }).catch(() => {});
     setPedidos(ps => ps.map(x => x.id === p.id ? { ...x, status: 'comprado', compra_info } : x));
     setOcupado(false);
   }

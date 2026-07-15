@@ -1,11 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
-import { DOCS_PADRAO, MESES, STATUS_LABEL, fmtBRL } from '@/lib/contrato';
+import { DOCS_PADRAO, STATUS_LABEL, fmtBRL } from '@/lib/contrato';
 
 type Evento = any;
 
-export default function EventosClient({ eventosIniciais, papel }: { eventosIniciais: Evento[]; papel: string }) {
+export default function EventosClient({ eventosIniciais, papel, obra }: { eventosIniciais: Evento[]; papel: string; obra: any }) {
   const [eventos, setEventos] = useState<Evento[]>(eventosIniciais);
   const [aberto, setAberto] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -14,7 +14,7 @@ export default function EventosClient({ eventosIniciais, papel }: { eventosInici
 
   async function audit(acao: string, id: string, detalhe: any) {
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('auditoria').insert({ usuario: user?.id, acao, entidade: 'eventos', entidade_id: id, detalhe });
+    await supabase.from('auditoria').insert({ usuario: user?.id, acao, entidade: 'eventos', entidade_id: id, detalhe, obra_id: obra.id });
   }
 
   async function mudarStatus(ev: Evento, novo: string, glosa = 0) {
@@ -22,14 +22,14 @@ export default function EventosClient({ eventosIniciais, papel }: { eventosInici
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from('eventos')
       .update({ status: novo, valor_glosa: glosa, atualizado_por: user?.id, atualizado_em: new Date().toISOString() })
-      .eq('id', ev.id);
+      .eq('id', ev.id).eq('obra_id', obra.id);
     if (error) { alert('Sem permissão para esta transição (perfil ' + papel + ').'); setOcupado(false); return; }
     await audit('mudanca_status', ev.id, { de: ev.status, para: novo, glosa });
     // dispara e-mail automático conforme o evento
     if (novo === 'validacao' || novo === 'aprovado' || novo === 'glosado') {
       fetch('/api/notificar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo: novo === 'validacao' ? 'submetida' : 'decidida', eventoId: ev.id }),
+        body: JSON.stringify({ tipo: novo === 'validacao' ? 'submetida' : 'decidida', eventoId: ev.id, obraId: obra.id }),
       }).catch(() => {});
     }
     setEventos(evts => evts.map(e => e.id === ev.id ? { ...e, status: novo, valor_glosa: glosa } : e));
@@ -45,7 +45,7 @@ export default function EventosClient({ eventosIniciais, papel }: { eventosInici
 
   async function toggleDoc(ev: Evento, i: number, val: boolean) {
     const docs = [...ev.docs]; docs[i] = val;
-    const { error } = await supabase.from('eventos').update({ docs }).eq('id', ev.id);
+    const { error } = await supabase.from('eventos').update({ docs }).eq('id', ev.id).eq('obra_id', obra.id);
     if (!error) setEventos(evts => evts.map(e => e.id === ev.id ? { ...e, docs } : e));
   }
 
@@ -62,7 +62,7 @@ export default function EventosClient({ eventosIniciais, papel }: { eventosInici
             {eventos.map(ev => {
               const [lbl, cls] = STATUS_LABEL[ev.status] ?? ['?', 'st-pend'];
               const docsOk = (ev.docs ?? []).filter(Boolean).length;
-              const mes = MESES.find(m => m.id === ev.mes);
+              const mes = (obra.meses ?? []).find((m: any) => m.id === ev.mes);
               return (
                 <FragmentRow key={ev.id}>
                   <tr style={{cursor:'pointer'}} onClick={() => setAberto(a => a === ev.id ? null : ev.id)}>
@@ -97,8 +97,8 @@ export default function EventosClient({ eventosIniciais, papel }: { eventosInici
                               <tr><td>Aprovação por</td><td className="num">{ev.aprova}</td></tr>
                               <tr><td>Valor bruto</td><td className="num">{fmtBRL(Number(ev.valor_bruto))}</td></tr>
                               {Number(ev.valor_glosa) > 0 && <tr><td>(−) Glosa aplicada</td><td className="num" style={{color:'var(--risk)'}}>{fmtBRL(Number(ev.valor_glosa))}</td></tr>}
-                              <tr><td>Retenção 10%</td><td className="num" style={{color:'var(--warn)'}}>{fmtBRL((Number(ev.valor_bruto)-Number(ev.valor_glosa||0)) * 0.1)}</td></tr>
-                              <tr><td><b>Líquido a pagar</b></td><td className="num"><b>{fmtBRL((Number(ev.valor_bruto)-Number(ev.valor_glosa||0)) * 0.9)}</b></td></tr>
+                              <tr><td>Retenção contratual</td><td className="num" style={{color:'var(--warn)'}}>{fmtBRL((Number(ev.valor_bruto)-Number(ev.valor_glosa||0)) * Number(obra.retencao_pct))}</td></tr>
+                              <tr><td><b>Líquido a pagar</b></td><td className="num"><b>{fmtBRL((Number(ev.valor_bruto)-Number(ev.valor_glosa||0)) * (1 - Number(obra.retencao_pct)))}</b></td></tr>
                             </tbody>
                           </table>
                           <div style={{marginTop:10,display:'flex',gap:6,flexWrap:'wrap'}}>

@@ -1,11 +1,14 @@
-# Painel de Acompanhamento — Contrato TK-328/2026 (BTS Smart Fit)
+# Painel de Acompanhamento de Obras — Plataforma Multi-Contrato
 
-Aplicação web completa com **login por usuário**, **banco de dados compartilhado**, **permissões por papel** (Contratante / Contratada / Admin) e **e-mails automáticos** de avanço do cronograma.
+Aplicação web completa com **login por usuário**, **banco compartilhado**, **múltiplas obras (centros de custo)**, **permissões por papel + vínculo por obra** e **e-mails automáticos** de avanço.
+
+> **Já está no ar?** Para atualizar da versão de obra única para multi-obra, veja `ATUALIZACAO-MULTIOBRA.md`.
 
 ## O que a aplicação faz
 
 | Recurso | Descrição |
 |---|---|
+| **Obras / centros de custo** | Cada contrato isolado, com portfólio consolidado e duplicação a partir de modelo |
 | Login e papéis | Contratante aprova/glosa medições e valida conformidade; Contratada executa e submete; Admin cria acessos |
 | Cronograma E01–E25 | Status, dossiê de 7 documentos (Cl. 3.4), critério de aceite, glosa com valor |
 | Faturamento | Boletim consolidado: bruto, glosa, retenção 10%, líquido, split 65/35 |
