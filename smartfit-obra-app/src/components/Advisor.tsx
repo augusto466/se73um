@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
-import { HexMark } from './Marca';
+import { SimboloMini } from './Marca';
 
 type Acao = { id: string; tool: string; rotulo: string; input: any; detalhe?: any; status: 'pendente' | 'executada' | 'descartada' | 'erro' };
 type Msg = { role: 'user' | 'assistant'; content: string; acoes?: Acao[] };
@@ -200,7 +200,7 @@ export default function Advisor() {
     <>
       {!aberto && (
         <button className="adv-fab" onClick={() => setAberto(true)} aria-label="Abrir advisor">
-          <HexMark size={20} cor="#fff" />
+          <SimboloMini size={18} cor="#fff" />
           <span>Advisor</span>
           <kbd>Ctrl K</kbd>
         </button>
@@ -210,7 +210,7 @@ export default function Advisor() {
         <aside className="adv" role="dialog" aria-label="Advisor">
           <header className="adv-hd">
             <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-              <HexMark size={20} />
+              <SimboloMini size={18} />
               <div>
                 <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 13 }}>Advisor</div>
                 <div style={{ fontSize: 10, color: 'var(--gray)' }}>lê seus dados e o acervo em tempo real</div>
@@ -252,7 +252,7 @@ export default function Advisor() {
 
             {!verHist && msgs.map((m, i) => (
               <div key={i} className={`adv-msg ${m.role}`}>
-                {m.role === 'assistant' && <div className="adv-av"><HexMark size={13} /></div>}
+                {m.role === 'assistant' && <div className="adv-av"><SimboloMini size={12} /></div>}
                 <div style={{ maxWidth: '88%' }}>
                   {m.content && <div className="adv-txt">{m.content}</div>}
                   {(m.acoes ?? []).map(a => (
@@ -329,7 +329,7 @@ export default function Advisor() {
 
             {!verHist && pensando && (
               <div className="adv-msg assistant">
-                <div className="adv-av"><HexMark size={13} /></div>
+                <div className="adv-av"><SimboloMini size={12} /></div>
                 <div className="adv-txt adv-pensando">{statusVivo || 'lendo seus dados'}<span>.</span><span>.</span><span>.</span></div>
               </div>
             )}
