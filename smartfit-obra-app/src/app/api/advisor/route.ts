@@ -2,6 +2,7 @@ import { supabaseServer, supabaseAdmin } from '@/lib/supabase/server';
 import { montarContexto } from '@/lib/contexto';
 import { simular, impactoEmTexto, type EventoCron, type Dependencia } from '@/lib/replanejamento';
 import { gerar as gerarOrcamento, compararComReal, type ModeloItem } from '@/lib/orcamento';
+import { historico as sinapiHistorico, indicadores as sinapiIndicadores, explodir as sinapiExplodir, UF_PADRAO } from '@/lib/sinapi';
 import { MODELO, outputConfig, cacheBreakpoint, montarSystem, logUso } from '@/lib/ia';
 
 export const maxDuration = 60;
@@ -56,6 +57,7 @@ VOCÊ NÃO É SÓ CONSELHEIRO — VOCÊ CONSTRÓI:
 
 SUAS FERRAMENTAS:
 - buscar_acervo: pesquisa nos projetos, documentos e anexos do GED. Use quando a pergunta envolver o conteúdo de um documento, memorial, projeto ou contrato anexado. Se a busca não retornar nada, diga que não encontrou no acervo.
+- consultar_sinapi: preço, histórico de 12 meses de uma composição SINAPI, ou os indicadores econômicos (INCC, IPCA, IGP-M). Use quando perguntarem quanto um insumo/serviço subiu, ou para embasar reajuste contratual. Roda na hora.
 - simular_orcamento: gera o orçamento de uma obra nova a partir das premissas (área de projeção, laje, prazo, padrão). Roda na hora, sem gravar. Devolve custo, BDI, preço, preço/m² e o comparativo com o custo real de obras já executadas. Use SEMPRE que o usuário perguntar quanto custa/quanto cobrar por uma obra — nunca chute preço de cabeça.
 - simular_replanejamento: roda o cenário e devolve o impacto (datas em cascata, curva de faturamento, alertas contratuais) SEM gravar nada. Use SEMPRE antes de propor uma revisão — inclusive quando o usuário já disser o que quer fazer. Leia o resultado e comente com os números.
 - aplicar_replanejamento: PROPÕE gravar a revisão. Só use depois de simular e de o usuário concordar com o cenário. Exige motivo. O usuário ainda confirma num cartão antes de executar.
@@ -173,6 +175,20 @@ const FERRAMENTAS = [
         evento_id: { type: 'string', description: 'Evento de medição vinculado, ex.: E03' },
       },
       required: ['descricao'],
+    },
+  },
+  {
+    name: 'consultar_sinapi',
+    description: 'Consulta a base SINAPI ao vivo: histórico de preço de uma composição (12 meses), a composição aberta até o insumo, ou indicadores econômicos (INCC, IPCA, IGP-M, SELIC). Executa na hora.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tipo: { type: 'string', enum: ['historico', 'explodir', 'indicadores'], description: 'historico: evolução do preço · explodir: abre a composição por insumo · indicadores: INCC/IPCA' },
+        codigo: { type: 'string', description: 'Código SINAPI da composição (para historico e explodir)' },
+        uf: { type: 'string', description: 'Estado, padrão GO' },
+        periodo: { type: 'string', description: 'Para histórico: 6m, 12m. Padrão 12m' },
+      },
+      required: ['tipo'],
     },
   },
   {
@@ -320,6 +336,45 @@ async function detalharPedido(pedidoId: number, obrasPermitidas: number[], papel
     orcado = o;
   }
   return { pedido: p, cotacoes: cots ?? [], vencedora: venc, orcado };
+}
+
+/** Consulta a base SINAPI ao vivo. */
+async function executarSinapi(input: any) {
+  const brl = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  try {
+    if (input.tipo === 'indicadores') {
+      const d: any = await sinapiIndicadores();
+      return `INCC (mês): ${d.incc}% | INCC acumulado 12m: ${d.incc_acumulado_12m}% | IPCA: ${d.ipca}% | SELIC: ${d.selic}% | dólar: ${d.dolar}\nFonte: ${d.fonte ?? 'Banco Central'}.\nO INCC acumulado é o índice usado em reajuste de contrato de obra.`;
+    }
+
+    if (!input.codigo) return 'Informe o código SINAPI da composição. Se não souber, pergunte ao usuário ou consulte a Base de Preços.';
+    const uf = (input.uf ?? UF_PADRAO).toUpperCase();
+
+    if (input.tipo === 'historico') {
+      const h = await sinapiHistorico(input.codigo, uf, 'composicao', input.periodo ?? '12m');
+      if (!h.serie.length) return `Sem histórico para ${input.codigo} em ${uf}.`;
+      const p0 = h.serie[0].preco, pN = h.serie[h.serie.length - 1].preco;
+      const varPct = p0 > 0 ? ((pN / p0 - 1) * 100).toFixed(1) : '0';
+      const L = [`${h.nome} (${h.codigo}) — ${uf}`];
+      h.serie.forEach((x: any) => L.push(`  ${x.data.slice(0, 7)}: ${brl(x.preco)}`));
+      L.push(`\nVariação no período: ${varPct}% (${brl(p0)} → ${brl(pN)})`);
+      return L.join('\n');
+    }
+
+    if (input.tipo === 'explodir') {
+      const c = await sinapiExplodir(input.codigo, uf);
+      const L = [`${c.descricao} (${c.codigo}) — ${c.unidade} — ${brl(c.valor_total)} em ${uf}`];
+      L.push(`Mão de obra: ${brl(c.mao_de_obra)} (${c.valor_total > 0 ? Math.round(c.mao_de_obra / c.valor_total * 100) : 0}%)`);
+      L.push('Insumos, do que mais pesa para o que menos pesa:');
+      c.insumos.slice(0, 12).forEach((i: any) =>
+        L.push(`  ${brl(i.valor_total)} · ${i.nome} (${i.quantidade} ${i.unidade} × ${brl(i.preco_unitario)}) [${i.tipo}]`));
+      return L.join('\n');
+    }
+
+    return 'Tipo inválido.';
+  } catch (e: any) {
+    return `Falha na consulta ao SINAPI: ${e.message}`;
+  }
 }
 
 /** Gera o orçamento paramétrico de uma obra nova — sem gravar nada. */
@@ -587,6 +642,10 @@ export async function POST(req: Request) {
             } else if (u.name === 'buscar_pessoa') {
               emitir({ t: 'busca', v: `procurando "${input.termo ?? ''}"` });
               const res = await executarBuscaPessoa(String(input.termo ?? ''));
+              resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
+            } else if (u.name === 'consultar_sinapi') {
+              emitir({ t: 'busca', v: `consultando SINAPI: ${input.tipo}${input.codigo ? ` ${input.codigo}` : ''}` });
+              const res = await executarSinapi(input);
               resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
             } else if (u.name === 'simular_orcamento') {
               emitir({ t: 'busca', v: `orçando ${input.area_projecao} m²` });

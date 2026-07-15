@@ -5,12 +5,15 @@ export const dynamic = 'force-dynamic';
 
 export default async function BasePrecos() {
   const supabase = supabaseServer();
-  const [{ data: bases }, { data: modelos }, { data: calib }, { data: imp }, { data: comps }] = await Promise.all([
+  const [{ data: bases }, { data: modelos }, { data: calib }, { data: imp }, { data: comps }, { data: pend }, { data: sincs }] = await Promise.all([
     supabase.from('bases_preco').select('*').order('tipo').order('nome'),
     supabase.from('modelos_orcamento').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('modelo_calibracoes').select('*').order('criado_em', { ascending: false }).limit(10),
     supabase.from('importacoes_base').select('*').order('criado_em', { ascending: false }).limit(5),
     supabase.from('composicoes').select('base_id').eq('ativo', true),
+    supabase.from('sinapi_pendencias').select('*').eq('status', 'pendente')
+      .order('usado_em_modelo', { ascending: false }).order('impacto_m2', { ascending: false }),
+    supabase.from('sinapi_sincronizacoes').select('*').order('criado_em', { ascending: false }).limit(5),
   ]);
 
   const resumo = Object.entries(
@@ -19,6 +22,7 @@ export default async function BasePrecos() {
 
   return (
     <BaseClient bases={bases ?? []} modelos={modelos ?? []}
-      calibracoes={calib ?? []} importacoes={imp ?? []} resumo={resumo} />
+      calibracoes={calib ?? []} importacoes={imp ?? []} resumo={resumo}
+      pendencias={pend ?? []} sincs={sincs ?? []} />
   );
 }

@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import { fmtBRL, fmtData } from '@/lib/contrato';
 
-export default function BaseClient({ bases, modelos, calibracoes, importacoes, resumo }:
-  { bases: any[]; modelos: any[]; calibracoes: any[]; importacoes: any[]; resumo: any[] }) {
+export default function BaseClient({ bases, modelos, calibracoes, importacoes, resumo, pendencias, sincs }:
+  { bases: any[]; modelos: any[]; calibracoes: any[]; importacoes: any[]; resumo: any[]; pendencias: any[]; sincs: any[] }) {
   const [modeloId, setModeloId] = useState(modelos[0]?.id ?? '');
   const [aba, setAba] = useState<'real' | 'base'>('real');
   const [analise, setAnalise] = useState<any>(null);
@@ -13,6 +13,68 @@ export default function BaseClient({ bases, modelos, calibracoes, importacoes, r
   const [csv, setCsv] = useState('');
   const [baseId, setBaseId] = useState('sinapi_go');
   const [ref, setRef] = useState('');
+  const [pend, setPend] = useState(pendencias);
+  const [pendSel, setPendSel] = useState<number[]>(pendencias.filter((p: any) => p.usado_em_modelo).map((p: any) => p.id));
+  const [comp, setComp] = useState<any>(null);
+  const [status, setStatus] = useState<any>(null);
+
+  async function verStatus() {
+    setOcupado(true);
+    try {
+      const r = await fetch('/api/comercial/sinapi?acao=status');
+      const j = await r.json();
+      if (j.erro) { alert(j.erro); setOcupado(false); return; }
+      setStatus(j);
+    } catch (e: any) { alert('Falha: ' + e.message); }
+    setOcupado(false);
+  }
+
+  async function compararEstados() {
+    setOcupado(true); setComp(null);
+    try {
+      const r = await fetch(`/api/comercial/sinapi?acao=comparar&uf=MT,GO&modelo=${modeloId}`);
+      const j = await r.json();
+      if (j.erro) { alert(j.erro); setOcupado(false); return; }
+      setComp(j);
+    } catch (e: any) { alert('Falha: ' + e.message); }
+    setOcupado(false);
+  }
+
+  async function sincronizar() {
+    setOcupado(true);
+    try {
+      const r = await fetch('/api/comercial/sinapi', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base_id: 'sinapi_go' }),
+      });
+      const j = await r.json();
+      if (j.erro) { alert(j.erro); setOcupado(false); return; }
+      alert(`${j.consultados} código(s) consultado(s) em ${j.uf}.\n${j.alterados} preço(s) mudaram.` +
+            (j.variacao_media_pct !== null ? `\nVariação média: ${j.variacao_media_pct}%` : '') +
+            `\n\n${j.proximo}`);
+      location.reload();
+    } catch (e: any) { alert('Falha: ' + e.message); }
+    setOcupado(false);
+  }
+
+  async function decidirPendencias(acao: 'aplicar' | 'ignorar') {
+    if (!pendSel.length) { alert('Escolha ao menos uma.'); return; }
+    if (acao === 'aplicar' && motivo.trim().length < 5) { alert('Descreva o motivo.'); return; }
+    setOcupado(true);
+    try {
+      const r = await fetch('/api/comercial/pendencias', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(acao === 'aplicar' ? { aplicar: pendSel, motivo } : { ignorar: pendSel }),
+      });
+      const j = await r.json();
+      if (j.erro) { alert(j.erro); setOcupado(false); return; }
+      if (acao === 'aplicar') {
+        alert(`${j.aplicadas} preço(s) aplicado(s) em ${j.itens} item(ns).\n\nCusto do modelo: R$ ${j.custo_m2_antes}/m² → R$ ${j.custo_m2_depois}/m² (${j.variacao_pct > 0 ? '+' : ''}${j.variacao_pct}%)`);
+      }
+      location.reload();
+    } catch (e: any) { alert('Falha: ' + e.message); }
+    setOcupado(false);
+  }
 
   async function analisar() {
     setOcupado(true); setAnalise(null); setEscolhidos([]);
@@ -189,9 +251,130 @@ export default function BaseClient({ bases, modelos, calibracoes, importacoes, r
         </div>
       </div>
 
+      {/* ---------- SINAPI automático ---------- */}
+      <div className="panel" style={{ borderLeft: '3px solid var(--brand)' }}>
+        <div className="hd">
+          <h3>SINAPI automático</h3>
+          <div style={{ display: 'flex', gap: 7 }}>
+            <button className="mini" disabled={ocupado} onClick={verStatus}>status</button>
+            <button className="mini" disabled={ocupado} onClick={compararEstados}>comparar MT × GO</button>
+            <button className="btn" disabled={ocupado} onClick={sincronizar}>{ocupado ? 'buscando…' : 'Sincronizar GO'}</button>
+          </div>
+        </div>
+        <div className="bd">
+          <p className="hint" style={{ marginBottom: 10 }}>
+            A Caixa não tem API — publica planilha mensal. O Orçamentador reprocessa e expõe via API, e avisa por
+            webhook quando sai tabela nova. O sistema busca só os códigos que os seus modelos usam, e enfileira as
+            mudanças para você aprovar. <b>Nada entra no modelo sozinho.</b>
+          </p>
+
+          {status && (
+            <div className="cock-strip" style={{ marginBottom: 12 }}>
+              <div className="it"><div className="n" style={{ fontSize: 14 }}>{status.uf}</div><div className="l">Estado</div></div>
+              <div className="it"><div className="n" style={{ fontSize: 11 }}>{status.regime}</div><div className="l">Regime</div></div>
+              {status.atualizacao?.referencia && (
+                <div className="it"><div className="n" style={{ fontSize: 13 }}>{status.atualizacao.referencia}</div><div className="l">Ref. disponível</div></div>
+              )}
+              {status.consumo?.monthly && (
+                <div className="it"><div className="n" style={{ fontSize: 13 }}>{status.consumo.monthly.remaining}</div><div className="l">Requisições no mês</div></div>
+              )}
+            </div>
+          )}
+
+          {comp && (
+            <>
+              <h4 style={{ fontSize: 11.5, margin: '12px 0 6px' }}>
+                MT × GO · impacto de {comp.impacto_total_m2 > 0 ? '+' : ''}{fmtBRL(comp.impacto_total_m2)}/m² no modelo
+              </h4>
+              <p className="hint" style={{ marginBottom: 8 }}>
+                {comp.consultados} de {comp.total} código(s) comparado(s). {comp.impacto_total_m2 < 0
+                  ? 'GO é mais barato — trocar a base derruba o custo/m².'
+                  : 'GO é mais caro que MT nestes itens.'}
+              </p>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="tab">
+                  <thead><tr><th>Etapa</th><th>Item</th><th style={{ textAlign: 'right' }}>MT</th><th style={{ textAlign: 'right' }}>GO</th><th style={{ textAlign: 'right' }}>Δ</th><th style={{ textAlign: 'right' }}>R$/m²</th></tr></thead>
+                  <tbody>
+                    {comp.itens.slice(0, 20).map((i: any) => (
+                      <tr key={i.item_id}>
+                        <td><span className="hint">{i.etapa}</span></td>
+                        <td style={{ maxWidth: 280 }}>{i.descricao}</td>
+                        <td style={{ textAlign: 'right' }}>{fmtBRL(i.precos.MT)}</td>
+                        <td style={{ textAlign: 'right' }}><b>{fmtBRL(i.precos.GO)}</b></td>
+                        <td style={{ textAlign: 'right', color: i.variacao_pct > 0 ? 'var(--brand)' : '#2e9e5b' }}>
+                          {i.variacao_pct > 0 ? '+' : ''}{i.variacao_pct}%
+                        </td>
+                        <td style={{ textAlign: 'right', color: i.impacto_m2 > 0 ? 'var(--brand)' : '#2e9e5b' }}>
+                          {i.impacto_m2 > 0 ? '+' : ''}{fmtBRL(i.impacto_m2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {comp.erros && <p className="hint" style={{ marginTop: 8 }}>{comp.erros.length} item(ns) sem preço: {comp.erros.slice(0, 3).join(' · ')}</p>}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ---------- pendências ---------- */}
+      {pend.length > 0 && (
+        <div className="panel" style={{ borderLeft: '3px solid var(--brand)' }}>
+          <div className="hd">
+            <h3>Preços aguardando sua decisão · {pend.length}</h3>
+            <span className="hint">nada foi aplicado ainda</span>
+          </div>
+          <div className="bd">
+            <div style={{ overflowX: 'auto' }}>
+              <table className="tab">
+                <thead><tr>
+                  <th style={{ width: 30 }}>
+                    <input type="checkbox" checked={pendSel.length === pend.length}
+                      onChange={e => setPendSel(e.target.checked ? pend.map((p: any) => p.id) : [])} />
+                  </th>
+                  <th>Item</th><th>Ref.</th>
+                  <th style={{ textAlign: 'right' }}>De</th><th style={{ textAlign: 'right' }}>Para</th>
+                  <th style={{ textAlign: 'right' }}>Δ</th><th style={{ textAlign: 'right' }}>R$/m²</th>
+                </tr></thead>
+                <tbody>
+                  {pend.map((p: any) => (
+                    <tr key={p.id} style={!p.usado_em_modelo ? { opacity: .55 } : undefined}>
+                      <td><input type="checkbox" checked={pendSel.includes(p.id)}
+                        onChange={e => setPendSel(l => e.target.checked ? [...l, p.id] : l.filter(i => i !== p.id))} /></td>
+                      <td style={{ maxWidth: 300 }}>{p.descricao}
+                        {!p.usado_em_modelo && <div className="hint">não usado em modelo</div>}</td>
+                      <td><span className="hint">{fmtData(p.referencia)}</span></td>
+                      <td style={{ textAlign: 'right' }}>{fmtBRL(p.preco_atual)}</td>
+                      <td style={{ textAlign: 'right' }}><b>{fmtBRL(p.preco_novo)}</b></td>
+                      <td style={{ textAlign: 'right', color: p.variacao_pct > 0 ? 'var(--brand)' : '#2e9e5b' }}>
+                        {p.variacao_pct > 0 ? '+' : ''}{p.variacao_pct}%
+                      </td>
+                      <td style={{ textAlign: 'right' }}>{p.impacto_m2 ? fmtBRL(p.impacto_m2) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="fg" style={{ marginTop: 12 }}>
+              <label>Motivo (fica no histórico do modelo)</label>
+              <input value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ex.: SINAPI GO 07/2026" />
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button className="btn" disabled={ocupado || !pendSel.length} onClick={() => decidirPendencias('aplicar')}>
+                Aplicar {pendSel.length}
+              </button>
+              <button className="mini" disabled={ocupado || !pendSel.length} onClick={() => decidirPendencias('ignorar')}>
+                Ignorar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ---------- importação ---------- */}
       <div className="panel">
-        <div className="hd"><h3>Importar base (SINAPI)</h3></div>
+        <div className="hd"><h3>Importar CSV (plano B)</h3><span className="hint">use quando a API estiver fora</span></div>
         <div className="bd">
           <p className="hint" style={{ marginBottom: 10 }}>
             A Caixa publica o SINAPI em planilha mensal por estado — não há API. Baixe a planilha, deixe as colunas
