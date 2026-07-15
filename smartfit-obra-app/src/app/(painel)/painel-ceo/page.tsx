@@ -31,7 +31,7 @@ export default async function PainelCeo() {
   return (
     <CockpitClient
       obras={obras ?? []} desvios={desvios ?? []} abc={abc ?? []} fornecedores={forn ?? []}
-      saldo={Number(caixa?.saldo_inicial ?? 0)} lancamentos={lancs ?? []}
+      saldo={Number(caixa?.saldo_inicial ?? 0)} saldoInformado={Number(caixa?.saldo_inicial ?? 0) !== 0} lancamentos={lancs ?? []}
       eventos={eventos ?? []} pedidos={pedidos ?? []} cotacoes={cotacoes ?? []}
       docs={docs ?? []} fvs={fvs ?? []} nome={perfil?.nome ?? ''}
     />

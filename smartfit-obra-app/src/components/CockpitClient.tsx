@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { fmtBRL, fmtPct, fmtData } from '@/lib/contrato';
-import { analisarMargem, analisarCaixa, analisarPrazo, analisarGargalos, gerarAlertas, CORES } from '@/lib/bi';
+import { analisarMargem, analisarCaixa, analisarPrazo, analisarGargalos, gerarAlertas, calcularSaude, CORES } from '@/lib/bi';
 
 const fmtC = (v: number) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
@@ -10,26 +10,16 @@ export default function CockpitClient(p: any) {
   const [aba, setAba] = useState<'abc' | 'fornecedores' | 'etapas'>('etapas');
 
   const margem = useMemo(() => analisarMargem(p.obras, p.desvios), [p.obras, p.desvios]);
-  const caixa = useMemo(() => analisarCaixa(p.lancamentos, p.saldo), [p.lancamentos, p.saldo]);
+  const caixa = useMemo(() => analisarCaixa(p.lancamentos, p.saldo, p.saldoInformado), [p.lancamentos, p.saldo, p.saldoInformado]);
   const prazos = useMemo(() => analisarPrazo(p.obras), [p.obras]);
   const gargalos = useMemo(() => analisarGargalos(p.eventos, p.pedidos, p.cotacoes, p.obras), [p.eventos, p.pedidos, p.cotacoes, p.obras]);
-  const alertas = useMemo(() => gerarAlertas(margem, caixa, prazos, p.desvios, p.docs, p.fvs), [margem, caixa, prazos, p.desvios, p.docs, p.fvs]);
+  const alertas = useMemo(() => gerarAlertas(margem, caixa, prazos, p.desvios, p.docs, p.fvs, gargalos), [margem, caixa, prazos, p.desvios, p.docs, p.fvs, gargalos]);
+  const saude = useMemo(() => calcularSaude(margem, caixa, prazos, alertas), [margem, caixa, prazos, alertas]);
 
-  const criticos = alertas.filter(a => a.nivel === 'critico').length;
-  const impactoTravado = gargalos.reduce((s, g) => s + g.impacto, 0);
-
-  // saúde geral: 0-100
-  const saude = useMemo(() => {
-    let s = 100;
-    if (margem.margemProjPctTotal < 10) s -= 25;
-    else if (margem.margemProjPctTotal < 15) s -= 10;
-    if (caixa.semanasAteFurar !== null) s -= caixa.semanasAteFurar <= 4 ? 30 : 15;
-    prazos.forEach(pr => { if (pr.semaforo === 'critico') s -= 15; else if (pr.semaforo === 'atencao') s -= 7; });
-    s -= criticos * 5;
-    return Math.max(0, Math.min(100, s));
-  }, [margem, caixa, prazos, criticos]);
-
-  const semSaude = saude >= 75 ? 'ok' : saude >= 50 ? 'atencao' : 'critico';
+  const criticos = alertas.filter((a: any) => a.nivel === 'critico').length;
+  const impactoTravado = gargalos.reduce((s: number, g: any) => s + g.impacto, 0);
+  const semSaude = saude.nota >= 75 ? 'ok' : saude.nota >= 50 ? 'atencao' : 'critico';
+  const faltaDado = !p.saldoInformado || !margem.temProjecao;
 
   const Sem = ({ s }: { s: string }) => (
     <span style={{ width: 8, height: 8, borderRadius: '50%', background: CORES[s as 'ok'], display: 'inline-block', flex: 'none' }} />
@@ -45,24 +35,32 @@ export default function CockpitClient(p: any) {
             <div className="resumo">
               {criticos > 0
                 ? <><b>{criticos} ponto(s) crítico(s)</b> exigem decisão agora.</>
-                : caixa.semanasAteFurar !== null
-                ? <>Caixa positivo por <b>{caixa.runway} semanas</b>. Nada crítico hoje.</>
-                : <>Sem pontos críticos. Margem e caixa dentro do esperado.</>}
+                : gargalos.length > 0
+                ? <><b>{fmtC(impactoTravado)}</b> em decisões esperando você. Nada crítico.</>
+                : <>Nada crítico e nada travado. Bom momento para olhar adiante.</>}
+              {faltaDado && <><br /><span style={{ color: 'var(--gray-2)', fontSize: 12 }}>
+                ⓘ Leitura parcial: {[!p.saldoInformado && 'saldo de caixa não informado', !margem.temProjecao && 'poucas compras aprovadas para projetar margem'].filter(Boolean).join(' · ')}.
+              </span></>}
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 44, fontWeight: 700, lineHeight: 1, color: CORES[semSaude] }}>{saude}</div>
-            <div style={{ fontSize: 9.5, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--gray)', fontWeight: 700, marginTop: 4 }}>Índice de saúde</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 44, fontWeight: 700, lineHeight: 1, color: CORES[semSaude] }}>{saude.nota}</div>
+            <div style={{ fontSize: 9.5, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--gray)', fontWeight: 700, marginTop: 4 }}>
+              Índice de saúde{saude.completo ? '' : ' · parcial'}
+            </div>
+            <div className="hint" style={{ fontSize: 10, marginTop: 3 }}>{saude.dims.map((d: any) => d.nome).join(' · ')}</div>
           </div>
         </div>
 
         <div className="cock-strip">
-          <div className={`it ${margem.margemProjPctTotal < 10 ? 'risco' : ''}`}>
-            <div className="n">{fmtPct(margem.margemProjPctTotal)}</div>
-            <div className="l">Margem projetada</div>
+          <div className={`it ${(margem.temProjecao ? margem.margemProjPctTotal : margem.margemContratoPctTotal) < 10 ? 'risco' : ''}`}>
+            <div className="n">{fmtPct(margem.temProjecao ? margem.margemProjPctTotal : margem.margemContratoPctTotal)}</div>
+            <div className="l">Margem {margem.temProjecao ? 'projetada' : 'de contrato'}</div>
           </div>
-          <div className={`it ${caixa.semanasAteFurar !== null ? 'risco' : ''}`}>
-            <div className="n">{caixa.semanasAteFurar !== null ? `${caixa.runway}s` : '26s+'}</div>
+          <div className={`it ${caixa.saldoInformado && caixa.semanasAteFurar !== null ? 'risco' : ''}`}>
+            <div className="n" style={!caixa.saldoInformado ? { color: 'var(--gray)' } : undefined}>
+              {!caixa.saldoInformado ? '—' : caixa.semanasAteFurar !== null ? `${caixa.semanasAteFurar}s` : '26s+'}
+            </div>
             <div className="l">Runway de caixa</div>
           </div>
           <div className="it">
@@ -84,9 +82,11 @@ export default function CockpitClient(p: any) {
             <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Realizada hoje</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: margem.margem >= 0 ? 'var(--ok)' : 'var(--brand)' }}>{fmtC(margem.margem)}</div>
               <div className="hint">{fmtPct(margem.margemPct)} sobre o medido</div></div>
-            <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Projetada no fim</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: margem.margemProjetadaTotal >= 0 ? 'var(--ok)' : 'var(--brand)' }}>{fmtC(margem.margemProjetadaTotal)}</div>
-              <div className="hint">estimativa · {fmtPct(margem.margemProjPctTotal)}</div></div>
+            <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>
+                {margem.temProjecao ? 'Projetada no fim' : 'Prevista na proposta'}</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: (margem.temProjecao ? margem.margemProjetadaTotal : margem.margemContratoTotal) >= 0 ? 'var(--ok)' : 'var(--brand)' }}>
+                {fmtC(margem.temProjecao ? margem.margemProjetadaTotal : margem.margemContratoTotal)}</div>
+              <div className="hint">{margem.temProjecao ? 'estimativa' : 'valor global − orçamento'} · {fmtPct(margem.temProjecao ? margem.margemProjPctTotal : margem.margemContratoPctTotal)}</div></div>
             <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Medido</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600 }}>{fmtC(margem.medido)}</div></div>
             <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Comprado</div>
@@ -99,17 +99,22 @@ export default function CockpitClient(p: any) {
                 <div><b style={{ fontFamily: 'var(--mono)', fontSize: 12.5 }}>{o.codigo}</b> <span className="hint">{o.nome}</span></div>
                 <div style={{ display: 'flex', gap: 20 }}>
                   <div style={{ textAlign: 'right' }}>
-                    <div className="hint">margem projetada</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontWeight: 600, color: o.margemProjPct < 10 ? 'var(--brand)' : 'var(--ok)' }}>
-                      {fmtC(o.margemProjetada)} · {fmtPct(o.margemProjPct)}
+                    <div className="hint">{o.projetavel ? 'margem projetada' : 'margem da proposta'}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontWeight: 600, color: (o.projetavel ? o.margemProjPct : o.margemContratoPct) < 10 ? 'var(--brand)' : 'var(--ok)' }}>
+                      {fmtC(o.projetavel ? o.margemProjetada : o.margemContrato)} · {fmtPct(o.projetavel ? o.margemProjPct : o.margemContratoPct)}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {!o.confiavel && (
+              {!o.projetavel && (
                 <p className="hint" style={{ marginBottom: 8 }}>
-                  ⓘ Projeção baseada em {o.etapasCompradas} de {o.etapasTotal} etapas com compra aprovada — margem de erro alta. Ganha precisão conforme as compras avançam.
+                  ⓘ Sem base para projetar ({o.etapasCompradas} de {o.etapasTotal} etapas com compra aprovada; mínimo 2). Exibindo a margem prevista na proposta: valor global {fmtC(Number(o.valor_global))} − orçamento de custo {fmtC(o.orcadoTotal)}. A projeção liga quando as compras começarem.
+                </p>
+              )}
+              {o.projetavel && (
+                <p className="hint" style={{ marginBottom: 8 }}>
+                  ⓘ Projeção com base em {o.etapasCompradas} de {o.etapasTotal} etapas compradas. Fator de desvio observado: {(o.fator * 100).toFixed(1)}% do orçado. Estimativa — ganha precisão a cada compra.
                 </p>
               )}
 
@@ -148,16 +153,19 @@ export default function CockpitClient(p: any) {
             <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Menor saldo projetado</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: caixa.menor < 0 ? 'var(--brand)' : 'var(--ok)' }}>{fmtC(caixa.menor)}</div></div>
             <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Queima semanal média</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600 }}>{fmtC(caixa.queima)}</div>
-              <div className="hint">4 semanas · estimativa</div></div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: caixa.queima === null ? 'var(--gray)' : undefined }}>
+                {caixa.queima === null ? '—' : fmtC(caixa.queima)}</div>
+              <div className="hint">{caixa.queima === null ? 'sem movimento nas próximas 4 semanas' : '4 semanas · estimativa'}</div></div>
             <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Runway</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: CORES[caixa.semaforo] }}>
-                {caixa.semanasAteFurar !== null ? `${caixa.runway} semanas` : '> 26 semanas'}
+                {!caixa.saldoInformado ? '—' : caixa.semanasAteFurar !== null ? `${caixa.semanasAteFurar} semanas` : '> 26 semanas'}
               </div>
-              {caixa.semanaFura && <div className="hint">fura em {fmtData(caixa.semanaFura.ini)}</div>}</div>
+              {!caixa.saldoInformado
+                ? <div className="hint">informe o saldo para calcular</div>
+                : caixa.semanaFura && <div className="hint">fura em {fmtData(caixa.semanaFura.ini)}</div>}</div>
           </div>
 
-          {p.saldo === 0 && (
+          {!p.saldoInformado && (
             <div className="alert warn"><b>Saldo de caixa não informado</b>
               A projeção parte de zero e não reflete a realidade. Informe o saldo em <Link href="/financeiro">Financeiro</Link> → "atualizar saldo".</div>
           )}
@@ -201,18 +209,22 @@ export default function CockpitClient(p: any) {
                   <td className="num" style={{ fontWeight: 600, color: o.gap < 0 ? 'var(--brand)' : 'var(--ok)' }}>{o.gap >= 0 ? '+' : ''}{fmtPct(o.gap)}</td>
                   <td className="num">{o.diasRestantes}</td>
                   <td>
-                    {o.atrasoProjetado === null ? <span className="hint">sem ritmo aferido</span>
-                      : o.atrasoProjetado > 0
-                      ? <span style={{ color: 'var(--brand)', fontWeight: 600, fontSize: 12.5 }}>~{o.atrasoProjetado} dias de atraso</span>
+                    {!o.projetavel
+                      ? <><span className="hint">ainda não projetável</span>
+                          <div className="hint" style={{ fontSize: 10.5 }}>avanço abaixo de 8% — ritmo inicial não prevê o restante</div></>
+                      : o.atrasoProjetado !== null && o.atrasoProjetado > 0
+                      ? <><span style={{ color: 'var(--brand)', fontWeight: 600, fontSize: 12.5 }}>~{o.atrasoProjetado} dias de atraso</span>
+                          <div className="hint">multa teto 10% (Cl. 8.1) ≈ {fmtC(Number(o.valor_global) * 0.1)}</div></>
                       : <span style={{ color: 'var(--ok)', fontWeight: 600, fontSize: 12.5 }}>dentro do prazo</span>}
-                    {o.atrasoProjetado > 0 && <div className="hint">multa 0,5%/dia (Cl. 8.1) ≈ {fmtC(Number(o.valor_global) * 0.005 * Math.min(o.atrasoProjetado, 20))}</div>}
                   </td>
                 </tr>
               ))}
               {prazos.length === 0 && <tr><td colSpan={5} className="hint">Nenhuma obra na carteira.</td></tr>}
             </tbody>
           </table>
-          <p className="hint" style={{ marginTop: 8 }}>Projeção pelo ritmo médio desde o início (% medido ÷ meses decorridos). Estimativa — ajusta conforme a obra avança.</p>
+          <p className="hint" style={{ marginTop: 8 }}>
+            O <b>gap</b> é dado firme (medido × cronograma aprovado). A <b>projeção</b> só aparece com avanço ≥ 8% — abaixo disso o ritmo inicial (projetos, mobilização) não representa o ritmo de execução.
+          </p>
         </div>
       </div>
 
