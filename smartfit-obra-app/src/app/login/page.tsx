@@ -15,7 +15,7 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
     setCarregando(false);
     if (error) { setErro('E-mail ou senha inválidos. Acessos são criados pelo administrador do contrato.'); return; }
-    window.location.href = '/visao';
+    window.location.href = '/meu-dia';
   }
 
   return (

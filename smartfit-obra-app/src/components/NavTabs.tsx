@@ -2,22 +2,27 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const TABS: [string, string][] = [
-  ['/visao', 'Visão Geral'],
-  ['/cronograma', 'Cronograma & Medições'],
-  ['/medicoes', 'Faturamento'],
-  ['/materiais', 'Materiais & Compras'],
-  ['/tarefas', 'Tarefas'],
-  ['/diario', 'Diário de Obras'],
-  // Oculto por decisão comercial — reativar removendo o comentário:
-  // ['/validacoes', 'Validações Contratuais'],
-];
-
 export default function NavTabs({ papel }: { papel: string }) {
   const path = usePathname();
-  const tabs: [string, string][] = [['/obras', 'Obras'], ...TABS];
-  if (papel === 'admin' || papel === 'contratante') tabs.push(['/financeiro', 'Financeiro']);
+  const gestor = papel === 'admin' || papel === 'contratante';
+
+  const tabs: [string, string][] = [
+    ['/meu-dia', 'Meu Dia'],
+    ['/obras', 'Obras'],
+    ['/visao', 'Visão Geral'],
+    ['/cronograma', 'Cronograma & Medições'],
+    ['/medicoes', 'Faturamento'],
+    ['/materiais', 'Materiais & Compras'],
+    ['/qualidade', 'Qualidade'],
+    ['/tarefas', 'Tarefas'],
+    ['/rotinas', 'Rotinas'],
+    ['/diario', 'Diário de Obras'],
+    // Oculto por decisão comercial — reativar removendo o comentário:
+    // ['/validacoes', 'Validações Contratuais'],
+  ];
+  if (gestor) tabs.push(['/financeiro', 'Financeiro'], ['/metas', 'Metas']);
   if (papel === 'admin') tabs.push(['/equipe', 'Equipe & Acessos']);
+
   return (
     <nav className="tabs">
       <div className="in">

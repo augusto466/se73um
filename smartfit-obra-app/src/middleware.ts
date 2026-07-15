@@ -27,7 +27,7 @@ export async function middleware(req: NextRequest) {
   }
   if (user && path === '/login') {
     const url = req.nextUrl.clone();
-    url.pathname = '/visao';
+    url.pathname = '/meu-dia';
     return NextResponse.redirect(url);
   }
   return res;
