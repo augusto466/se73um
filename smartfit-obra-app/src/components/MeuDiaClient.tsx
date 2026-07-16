@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { Anel, Metricas } from './Visual';
 import { fmtData } from '@/lib/contrato';
 
 const TIPO_INFO: Record<string, { rotulo: string; cor: string; href: string }> = {
@@ -103,6 +104,12 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens
     ? <>{grupos.hoje.length} item(ns) para hoje. Nada atrasado.</>
     : <>Nada atrasado nem vencendo hoje. O dia é seu para pensar.</>;
 
+  // percentual do que já saiu do caminho, sobre o que estava previsto para o período
+  const totalPeriodo = grupos.atrasado.length + grupos.hoje.length + grupos.semana.length;
+  const pctConcluido = totalPeriodo > 0
+    ? Math.round((1 - (grupos.atrasado.length + grupos.hoje.length) / totalPeriodo) * 100)
+    : 100;
+
   return (
     <>
       <section className="cock-hero">
@@ -135,6 +142,22 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens
           {briefAberto && <div className="bd adv-brief-txt">{briefing.conteudo}</div>}
         </div>
       )}
+
+      <div className="panel">
+        <div className="hd"><h3>Seu resumo hoje</h3></div>
+        <div className="bd">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <Metricas itens={[
+                { n: String(grupos.hoje.length + grupos.atrasado.length).padStart(2, '0'), label: 'Pendências', sub: 'para hoje', risco: grupos.atrasado.length > 0 },
+                { n: String(decisoes.length).padStart(2, '0'), label: 'Decisões', sub: 'aguardando você', risco: decisoes.length > 0 },
+                { n: String(grupos.semana.length).padStart(2, '0'), label: 'Próximos 7 dias', sub: 'atividades' },
+              ]} />
+            </div>
+            <Anel pct={pctConcluido} rotulo="concluído" />
+          </div>
+        </div>
+      </div>
 
       <div>
         <Bloco titulo="⚠ Atrasado" itens={grupos.atrasado} destaque="var(--risk)" />

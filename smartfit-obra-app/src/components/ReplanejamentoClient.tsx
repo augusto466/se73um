@@ -220,7 +220,7 @@ export default function ReplanejamentoClient({ eventos, deps, revisoes, obra, pa
                       <td><b>{d.evento_id}</b> {d.etapa}</td>
                       <td>{fmtData(d.de_inicio)}</td>
                       <td>{fmtData(d.para_inicio)}</td>
-                      <td style={{ color: d.dias < 0 ? '#2e9e5b' : d.dias > 0 ? 'var(--brand)' : undefined }}>
+                      <td style={{ color: d.dias < 0 ? 'var(--ok)' : d.dias > 0 ? 'var(--brand)' : undefined }}>
                         {d.dias > 0 ? '+' : ''}{d.dias}d
                       </td>
                       <td><span className="hint">{d.motivo === 'cascata' ? 'precedência' : 'direto'}</span></td>
@@ -242,7 +242,7 @@ export default function ReplanejamentoClient({ eventos, deps, revisoes, obra, pa
                         <td>{f.periodo}</td>
                         <td style={{ textAlign: 'right' }}>{fmtBRL(f.base)}</td>
                         <td style={{ textAlign: 'right' }}>{fmtBRL(f.prev)}</td>
-                        <td style={{ textAlign: 'right', color: f.delta > 0 ? '#2e9e5b' : 'var(--brand)' }}>
+                        <td style={{ textAlign: 'right', color: f.delta > 0 ? 'var(--ok)' : 'var(--brand)' }}>
                           {f.delta > 0 ? '+' : ''}{fmtBRL(f.delta)}
                         </td>
                       </tr>
@@ -301,7 +301,7 @@ export default function ReplanejamentoClient({ eventos, deps, revisoes, obra, pa
                     <td><span className="hint">{e.status}</span></td>
                     <td>{fmtData(e.base_inicio)}{e.base_fim && <span className="hint"> → {fmtData(e.base_fim)}</span>}</td>
                     <td>{fmtData(vigente(e))}{(e.prev_fim ?? e.base_fim) && <span className="hint"> → {fmtData(e.prev_fim ?? e.base_fim)}</span>}</td>
-                    <td style={{ color: d < 0 ? '#2e9e5b' : d > 0 ? 'var(--brand)' : undefined }}>{d ? `${d > 0 ? '+' : ''}${d}d` : '—'}</td>
+                    <td style={{ color: d < 0 ? 'var(--ok)' : d > 0 ? 'var(--brand)' : undefined }}>{d ? `${d > 0 ? '+' : ''}${d}d` : '—'}</td>
                     <td>
                       {concluido ? <span className="hint">concluído</span> : (
                         <input type="date" value={ajustes[e.id] ?? ''} disabled={!gestor}

@@ -318,7 +318,7 @@ export default function Advisor() {
                             <span className="hint" style={{ color: 'var(--brand)' }}>escolha o centro de custo</span>}
                         </div>
                       )}
-                      {a.status === 'executada' && <span className="hint" style={{ color: 'var(--ok, #2e9e5b)' }}>✓ executada</span>}
+                      {a.status === 'executada' && <span className="hint" style={{ color: 'var(--ok)' }}>✓ executada</span>}
                       {a.status === 'descartada' && <span className="hint">descartada</span>}
                       {a.status === 'erro' && <span className="hint" style={{ color: 'var(--brand)' }}>falhou — tente pela tela correspondente</span>}
                     </div>

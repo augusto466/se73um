@@ -146,7 +146,7 @@ export default function EmpresaClient({ empresa, podeEditar, urlLogoAtual }:
             <div style={{
               marginTop: 10, padding: 10, borderRadius: 6,
               background: f.dominio_verificado ? 'var(--surface-2)' : 'var(--brand-soft)',
-              borderLeft: `3px solid ${f.dominio_verificado ? '#2e9e5b' : 'var(--brand)'}`,
+              borderLeft: `3px solid ${f.dominio_verificado ? 'var(--ok)' : 'var(--brand)'}`,
             }}>
               <b style={{ fontSize: 12.5 }}>
                 {f.dominio_verificado ? `✓ ${dominio} verificado` : `${dominio} ainda não verificado`}

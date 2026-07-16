@@ -222,7 +222,7 @@ export default function BaseClient({ bases, modelos, calibracoes, importacoes, r
                           {x.fonte && <div className="hint">{x.fonte}</div>}</td>
                         <td style={{ textAlign: 'right' }}>{fmtBRL(x.de)}</td>
                         <td style={{ textAlign: 'right' }}><b>{fmtBRL(x.para)}</b></td>
-                        <td style={{ textAlign: 'right', color: x.variacao_pct > 0 ? 'var(--brand)' : '#2e9e5b' }}>
+                        <td style={{ textAlign: 'right', color: x.variacao_pct > 0 ? 'var(--brand)' : 'var(--ok)' }}>
                           {x.variacao_pct > 0 ? '+' : ''}{x.variacao_pct}%
                         </td>
                       </tr>
@@ -301,10 +301,10 @@ export default function BaseClient({ bases, modelos, calibracoes, importacoes, r
                         <td style={{ maxWidth: 280 }}>{i.descricao}</td>
                         <td style={{ textAlign: 'right' }}>{fmtBRL(i.precos.MT)}</td>
                         <td style={{ textAlign: 'right' }}><b>{fmtBRL(i.precos.GO)}</b></td>
-                        <td style={{ textAlign: 'right', color: i.variacao_pct > 0 ? 'var(--brand)' : '#2e9e5b' }}>
+                        <td style={{ textAlign: 'right', color: i.variacao_pct > 0 ? 'var(--brand)' : 'var(--ok)' }}>
                           {i.variacao_pct > 0 ? '+' : ''}{i.variacao_pct}%
                         </td>
-                        <td style={{ textAlign: 'right', color: i.impacto_m2 > 0 ? 'var(--brand)' : '#2e9e5b' }}>
+                        <td style={{ textAlign: 'right', color: i.impacto_m2 > 0 ? 'var(--brand)' : 'var(--ok)' }}>
                           {i.impacto_m2 > 0 ? '+' : ''}{fmtBRL(i.impacto_m2)}
                         </td>
                       </tr>
@@ -347,7 +347,7 @@ export default function BaseClient({ bases, modelos, calibracoes, importacoes, r
                       <td><span className="hint">{fmtData(p.referencia)}</span></td>
                       <td style={{ textAlign: 'right' }}>{fmtBRL(p.preco_atual)}</td>
                       <td style={{ textAlign: 'right' }}><b>{fmtBRL(p.preco_novo)}</b></td>
-                      <td style={{ textAlign: 'right', color: p.variacao_pct > 0 ? 'var(--brand)' : '#2e9e5b' }}>
+                      <td style={{ textAlign: 'right', color: p.variacao_pct > 0 ? 'var(--brand)' : 'var(--ok)' }}>
                         {p.variacao_pct > 0 ? '+' : ''}{p.variacao_pct}%
                       </td>
                       <td style={{ textAlign: 'right' }}>{p.impacto_m2 ? fmtBRL(p.impacto_m2) : '—'}</td>
