@@ -39,6 +39,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
       { href: '/tarefas', label: 'Tarefas', ic: '◧' },
       { href: '/colaboradores', label: 'Equipe de Campo', ic: '◍' },
       { href: '/rotinas', label: 'Rotinas', ic: '◨' },
+      ...(gestor ? [{ href: '/whatsapp', label: 'WhatsApp', ic: '◔' }] : []),
     ]},
     { titulo: 'Acervo', itens: [
       { href: '/projetos', label: 'Projetos', ic: '⬡' },
