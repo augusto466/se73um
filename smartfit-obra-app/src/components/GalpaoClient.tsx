@@ -81,13 +81,15 @@ export default function GalpaoClient({ op }: { op?: any }) {
 
   return (
     <>
-      <section className="cock-hero">
-        <div className="saud">Orçamento de galpão</div>
-        <div className="resumo">
-          Estrutura pelo manual Gerdau, fechamento pela geometria, fundação pelas reações do pórtico.
-          Cálculo, não índice médio.
-        </div>
-      </section>
+      {!op && (
+        <section className="cock-hero">
+          <div className="saud">Orçamento de galpão</div>
+          <div className="resumo">
+            Estrutura pelo manual Gerdau, fechamento pela geometria, fundação por Décourt-Quaresma.
+            Cálculo, não índice médio.
+          </div>
+        </section>
+      )}
 
       {/* ---------- geometria ---------- */}
       <div className="panel">

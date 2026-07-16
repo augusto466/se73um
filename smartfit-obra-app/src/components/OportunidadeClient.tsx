@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import GalpaoClient from './GalpaoClient';
+import EnviarProposta from './EnviarProposta';
 import { fmtBRL, fmtData } from '@/lib/contrato';
 
 export default function OportunidadeClient({ op, premissasIniciais, modelos, propostas, itensProposta }:
@@ -13,6 +15,8 @@ export default function OportunidadeClient({ op, premissasIniciais, modelos, pro
   const [alertas, setAlertas] = useState<any[]>([]);
   const [ocupado, setOcupado] = useState(false);
   const [verItens, setVerItens] = useState(false);
+  const [metodo, setMetodo] = useState<'engenharia' | 'parametrico'>('engenharia');
+  const [enviando, setEnviando] = useState(false);
   const [itens, setItens] = useState(itensProposta);
   const [editando, setEditando] = useState<number | null>(null);
   const [edicao, setEdicao] = useState<any>({});
@@ -131,7 +135,27 @@ export default function OportunidadeClient({ op, premissasIniciais, modelos, pro
         </div>
       </section>
 
-      {/* ---------- premissas ---------- */}
+      {/* ---------- escolha do método ---------- */}
+      <div className="panel">
+        <div className="hd">
+          <div className="subtabs">
+            <button className={`subtab ${metodo === 'engenharia' ? 'on' : ''}`} onClick={() => setMetodo('engenharia')}>Galpão por engenharia</button>
+            <button className={`subtab ${metodo === 'parametrico' ? 'on' : ''}`} onClick={() => setMetodo('parametrico')}>Paramétrico (índice médio)</button>
+          </div>
+        </div>
+        <div className="bd">
+          <p className="hint">
+            {metodo === 'engenharia'
+              ? 'Estrutura pelas tabelas do manual Gerdau, fechamento pela geometria com desconto de porta, fundação por Décourt-Quaresma (NBR 6122). Use quando for galpão em pórtico e você tiver as dimensões.'
+              : 'Multiplica os índices de uma obra anterior pela área nova. Serve para uma primeira conversa, quando ainda não há dimensões — mas erra quando a obra é diferente.'}
+          </p>
+        </div>
+      </div>
+
+      {metodo === 'engenharia' && <GalpaoClient op={op} />}
+
+      {/* ---------- premissas (paramétrico) ---------- */}
+      {metodo === 'parametrico' && (
       <div className="panel">
         <div className="hd">
           <h3>Premissas da obra</h3>
@@ -167,8 +191,10 @@ export default function OportunidadeClient({ op, premissasIniciais, modelos, pro
         </div>
       </div>
 
-      {/* ---------- resultado ---------- */}
-      {res && (
+      )}
+
+      {/* ---------- resultado (paramétrico) ---------- */}
+      {metodo === 'parametrico' && res && (
         <div className="panel" style={{ borderLeft: '3px solid var(--brand)' }}>
           <div className="hd">
             <h3>{sim ? 'Orçamento simulado' : `Proposta R${String(ultima.versao).padStart(2,'0')}`}</h3>
@@ -224,11 +250,15 @@ export default function OportunidadeClient({ op, premissasIniciais, modelos, pro
             <h3>Propostas · {propostas.length} versão(ões)</h3>
             <div style={{ display: 'flex', gap: 7 }}>
               <a className="mini" href={`/api/comercial/pdf?proposta=${ultima.id}`} target="_blank" rel="noreferrer">↓ PDF</a>
+              {ultima.status !== 'aceita' && (
+                <button className="mini" onClick={() => setEnviando(e => !e)}>{enviando ? 'fechar' : '✉ Enviar ao cliente'}</button>
+              )}
               {ultima.status !== 'aceita' && !op.obra_id &&
                 <button className="btn" disabled={ocupado} onClick={converter}>Ganhou → criar obra</button>}
             </div>
           </div>
           <div className="bd">
+            {enviando && <EnviarProposta propostaId={ultima.id} onFechar={() => setEnviando(false)} />}
             <table className="tab">
               <thead><tr><th>Versão</th><th>Status</th><th style={{ textAlign: 'right' }}>Custo</th><th style={{ textAlign: 'right' }}>Preço</th><th>Criada</th></tr></thead>
               <tbody>

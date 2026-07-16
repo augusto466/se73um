@@ -86,3 +86,66 @@ Proposta → obra → custo real → calibra o modelo → próxima proposta melh
 - Um modelo só: galpão metálico. BTS academia e estrutura avulsa precisam dos seus próprios índices — a partir da segunda obra de cada tipo, dá para derivar.
 - A calibração automática (custo real → índice) ainda é manual: a função `derivarIndices` existe, mas falta a tela.
 - O BDI é por item, herdado do modelo. Não há ainda composição de BDI (encargos, lucro, impostos, risco) por obra.
+
+---
+
+# O CICLO COMPLETO — do contato ao envio
+
+## Como as peças se ligam
+
+```
+Comercial → nova oportunidade (contato)
+    ↓
+abre a oportunidade → escolhe o método:
+    ├─ Galpão por engenharia  (Gerdau + geometria + NBR 6122)
+    └─ Paramétrico            (índice médio de obra anterior)
+    ↓
+preenche as premissas → Calcular → confere a memória de cálculo
+    ↓
+Salvar como proposta  →  R01 (o funil vai para "orçamento")
+    ↓
+✉ Enviar ao cliente → o sistema prepara, você confere e clica
+    ↓
+o funil vai para "proposta"; a versão fica marcada como enviada
+    ↓
+negociação → nova versão (R02, R03...) → cada uma com seu envio
+    ↓
+Ganhou → cria obra com o orçamento dentro
+```
+
+## O motor dentro da oportunidade
+
+O "Orçar Galpão" deixou de ser tela solta. Dentro da oportunidade há duas abas:
+
+- **Galpão por engenharia** — o motor Gerdau completo, com memória de cálculo
+- **Paramétrico** — o índice médio, para quando ainda não há dimensões
+
+O "Simular Galpão" continua no menu para orçar sem oportunidade — útil numa ligação, para dar uma ordem de grandeza.
+
+## Envio
+
+**Nada sai sozinho.** O sistema prepara: pega o e-mail de contato da oportunidade, monta o assunto (`Proposta R01 — BTS Smart Fit (OP-2026-001)`) e redige o corpo com valor, prazo e validade. Você lê, ajusta o que quiser, e clica.
+
+E-mail a cliente não tem CTRL+Z. Por isso o advisor redige, mas **nunca envia**.
+
+**A proposta vai como link**, não anexo — gerar PDF binário exigiria headless browser na serverless. O link abre a proposta com a identidade Se73um, pronta para o cliente imprimir ou salvar.
+
+**Cada envio fica registrado** (destinatário, assunto, corpo, data, quem enviou) e é **imutável**: numa negociação, é a prova de que a proposta saiu e do que ela dizia.
+
+## Configuração do e-mail
+
+| Variável | O quê |
+|---|---|
+| `RESEND_API_KEY` | chave da API do Resend |
+| `RESEND_FROM` | remetente verificado, ex.: `comercial@se73um.com.br` |
+| `NEXT_PUBLIC_SITE_URL` | domínio, para o link da proposta |
+
+O Resend exige **domínio verificado** — não dá para enviar de um Gmail. Sem as variáveis, o botão avisa e sugere baixar o PDF e enviar pelo seu cliente de e-mail.
+
+## O funil anda sozinho
+
+- **Gerar orçamento** → estágio "orçamento", 40%
+- **Enviar proposta** → estágio "proposta", 60%
+- **Ganhou → criar obra** → "assinada", 100%
+
+Você move manualmente quando a realidade não segue o script (o cliente sumiu, voltou atrás, pediu revisão).
