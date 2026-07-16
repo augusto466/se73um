@@ -1,4 +1,5 @@
 import { supabaseServer } from '@/lib/supabase/server';
+import { empresaAtual, urlLogo, nomeEmpresa } from '@/lib/empresa';
 
 export const maxDuration = 60;
 
@@ -24,11 +25,18 @@ export async function GET(req: Request) {
     .select('*, oportunidades(*)').eq('id', id).maybeSingle();
   if (!p) return new Response('Proposta não encontrada.', { status: 404 });
 
-  const [{ data: itens }, { data: prem }] = await Promise.all([
+  const [{ data: itens }, { data: prem }, emp] = await Promise.all([
     supa.from('proposta_itens').select('*').eq('proposta_id', id).order('ordem'),
     supa.from('oportunidade_premissas').select('*').eq('oportunidade_id', p.oportunidade_id).maybeSingle(),
+    empresaAtual(),
   ]);
   const op: any = p.oportunidades;
+  // a proposta sai com a marca da EMPRESA, não com a da Se73um
+  const cor = emp?.cor_marca || '#FD1843';
+  const logo = urlLogo(emp?.logo_path);
+  const nome = nomeEmpresa(emp);
+  const contato = [emp?.telefone, emp?.email, emp?.site].filter(Boolean).join(' · ');
+  const local = [emp?.endereco, emp?.cidade && `${emp.cidade}/${emp.uf ?? ''}`].filter(Boolean).join(' — ');
 
   // agrupa por etapa preservando a ordem
   const etapas: { nome: string; itens: any[]; total: number }[] = [];
@@ -47,16 +55,16 @@ export async function GET(req: Request) {
   @page { size: A4; margin: 14mm 12mm; }
   * { box-sizing: border-box; }
   body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: #0D0D0F; font-size: 10pt; line-height: 1.45; margin: 0; }
-  .cabec { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 3px solid #FD1843; padding-bottom: 12px; margin-bottom: 18px; }
+  .cabec { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 3px solid ${cor}; padding-bottom: 12px; margin-bottom: 18px; }
   .marca { display: flex; gap: 10px; align-items: center; }
   .nm { font-size: 17pt; font-weight: 800; letter-spacing: -.3px; line-height: 1; }
-  .nm em { color: #FD1843; font-style: normal; }
+  .nm em { color: ${cor}; font-style: normal; }
   .tg { font-size: 6.5pt; letter-spacing: 2.2px; text-transform: uppercase; color: #6B6B75; margin-top: 3px; }
   .meta { text-align: right; font-size: 8.5pt; color: #6B6B75; }
   .meta b { color: #0D0D0F; font-size: 11pt; display: block; }
   h1 { font-size: 14pt; margin: 0 0 3px; }
   .sub { color: #6B6B75; font-size: 9pt; margin-bottom: 16px; }
-  .bloco { border: 1px solid #E6E6EA; border-left: 3px solid #FD1843; border-radius: 6px; padding: 11px 13px; margin-bottom: 14px; }
+  .bloco { border: 1px solid #E6E6EA; border-left: 3px solid ${cor}; border-radius: 6px; padding: 11px 13px; margin-bottom: 14px; }
   .bloco h3 { font-size: 9.5pt; margin: 0 0 6px; letter-spacing: .04em; text-transform: uppercase; }
   .bloco p { margin: 0 0 7px; text-align: justify; }
   .prem { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
@@ -70,27 +78,25 @@ export async function GET(req: Request) {
   .etapa h2 { font-size: 10pt; background: #0D0D0F; color: #fff; padding: 5px 9px; border-radius: 4px 4px 0 0; margin: 0; }
   .tot-etapa { text-align: right; font-weight: 700; padding: 6px 9px; background: #F5F5F7; border-radius: 0 0 4px 4px; font-size: 9pt; }
   .resumo tr td:first-child { font-weight: 600; }
-  .total { background: #FD1843; color: #fff; padding: 12px 16px; border-radius: 6px; text-align: right; font-size: 15pt; font-weight: 800; margin: 16px 0; }
+  .total { background: ${cor}; color: #fff; padding: 12px 16px; border-radius: 6px; text-align: right; font-size: 15pt; font-weight: 800; margin: 16px 0; }
   .cond { font-size: 8.5pt; color: #3A3A42; }
   .rod { margin-top: 20px; padding-top: 10px; border-top: 1px solid #E6E6EA; font-size: 7.5pt; color: #6B6B75; display: flex; justify-content: space-between; }
   @media print { .noprint { display: none; } }
-  .noprint { position: fixed; top: 10px; right: 10px; background: #FD1843; color: #fff; border: 0; padding: 9px 15px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600; }
+  .noprint { position: fixed; top: 10px; right: 10px; background: ${cor}; color: #fff; border: 0; padding: 9px 15px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600; }
 </style></head><body>
 <button class="noprint" onclick="window.print()">Salvar como PDF</button>
 
 <div class="cabec">
   <div class="marca">
-    <svg width="26" height="34" viewBox="0 0 100 100" fill="none">
-      <path d="M99.7 0 L0 21.74 L99.7 35.54 L99.7 25.5 L20.5 21.74 L99.7 7.51 Z" fill="#FD1843"/>
-      <rect y="35.65" width="100" height="7.73" fill="#0D0D0F"/><rect y="45.47" width="100" height="7.73" fill="#0D0D0F"/>
-      <rect y="59.05" width="100" height="7.73" fill="#FD1843"/><rect y="68.87" width="100" height="7.73" fill="#FD1843"/>
-      <rect y="78.81" width="100" height="7.73" fill="#FD1843"/><rect y="92.38" width="100" height="7.73" fill="#0D0D0F"/>
-    </svg>
-    <div><div class="nm">Se<em>73</em>um</div><div class="tg">Technology</div></div>
+    ${logo
+      ? `<img src="${logo}" alt="${esc(nome)}" style="max-height:46px;max-width:180px;object-fit:contain">`
+      : `<div><div class="nm">${esc(nome)}</div>${emp?.cnpj ? `<div class="tg">CNPJ ${esc(emp.cnpj)}</div>` : ''}</div>`}
   </div>
   <div class="meta">
     <b>PROPOSTA R${String(p.versao).padStart(2, '0')}</b>
     ${esc(op.codigo ?? '')}<br>Emissão: ${hoje}<br>Validade: ${validade}
+    ${contato ? `<div style="margin-top:6px">${esc(contato)}</div>` : ''}
+    ${local ? `<div>${esc(local)}</div>` : ''}
   </div>
 </div>
 
@@ -136,9 +142,10 @@ ${etapas.map(e => `<div class="etapa">
 </div>
 
 <div class="rod">
-  <span>Se73um Technology · Modo Modular</span>
+  <span>${esc(nome)}${emp?.cnpj ? ` · CNPJ ${esc(emp.cnpj)}` : ''}</span>
   <span>Proposta ${esc(op.codigo ?? '')} R${String(p.versao).padStart(2, '0')} · ${hoje}</span>
 </div>
+<div style="text-align:center;font-size:7pt;color:#9A9AA3;margin-top:8px">by Se73um Technology</div>
 </body></html>`;
 
   return new Response(html, {

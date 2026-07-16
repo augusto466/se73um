@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
+import { empresaAtual, nomeEmpresa, urlLogo } from '@/lib/empresa';
 
 export const maxDuration = 60;
 
@@ -23,7 +24,10 @@ export async function GET(req: Request) {
   if (!p) return NextResponse.json({ erro: 'Proposta não encontrada.' }, { status: 404 });
 
   const op: any = p.oportunidades;
-  const { data: perfil } = await supa.from('profiles').select('nome').eq('id', user.id).single();
+  const [{ data: perfil }, emp] = await Promise.all([
+    supa.from('profiles').select('nome').eq('id', user.id).single(),
+    empresaAtual(),
+  ]);
   const { data: envios } = await supa.from('proposta_envios')
     .select('para, assunto, enviado_em, status').eq('proposta_id', id).order('enviado_em', { ascending: false });
 
@@ -47,16 +51,23 @@ export async function GET(req: Request) {
     '',
     'Atenciosamente,',
     perfil?.nome ?? '',
-    'Se73um Technology · Modo Modular',
+    nomeEmpresa(emp),
   ].filter(l => l !== '').join('\n');
+
+  const avisos: string[] = [];
+  if (!op.contato_email) avisos.push('A oportunidade não tem e-mail de contato — informe abaixo ou cadastre na oportunidade.');
+  if (!emp?.email_remetente) avisos.push('A empresa não tem remetente configurado. Vá em Minha Empresa → Envio de e-mail.');
+  else if (!emp.dominio_verificado) avisos.push(`O domínio de ${emp.email_remetente} ainda não foi verificado — o envio pelo sistema fica indisponível até lá. Baixe o PDF e envie pelo seu cliente de e-mail.`);
 
   return NextResponse.json({
     ok: true,
     para: op.contato_email ?? '',
     assunto, corpo,
+    remetente: emp?.email_remetente ?? null,
+    pode_enviar: !!emp?.email_remetente && !!emp?.dominio_verificado,
     proposta: { versao, preco_total: p.preco_total, status: p.status },
     envios: envios ?? [],
-    aviso: !op.contato_email ? 'A oportunidade não tem e-mail de contato — informe abaixo ou cadastre na oportunidade.' : null,
+    aviso: avisos.length ? avisos.join(' ') : null,
   });
 }
 
@@ -79,12 +90,27 @@ export async function POST(req: Request) {
   }
 
   const chave = process.env.RESEND_API_KEY;
-  const remetente = process.env.RESEND_FROM;
-  if (!chave || !remetente) {
+  if (!chave) {
     return NextResponse.json({
-      erro: 'Envio por e-mail não configurado. Adicione RESEND_API_KEY e RESEND_FROM nas variáveis da Vercel. Enquanto isso, baixe o PDF e envie pelo seu cliente de e-mail.',
+      erro: 'Envio não configurado: falta RESEND_API_KEY nas variáveis da Vercel.',
     }, { status: 503 });
   }
+
+  // A proposta sai do e-mail da EMPRESA, não da Se73um. Sem domínio verificado
+  // o Resend recusa — e é bom que recuse: enviar em nome de domínio alheio é
+  // o que os provedores classificam como spoofing.
+  const emp = await empresaAtual();
+  if (!emp?.email_remetente) {
+    return NextResponse.json({
+      erro: 'A empresa não tem remetente configurado. Vá em Minha Empresa → Envio de e-mail.',
+    }, { status: 400 });
+  }
+  if (!emp.dominio_verificado) {
+    return NextResponse.json({
+      erro: `O domínio de ${emp.email_remetente} não está verificado. Sem isso o provedor recusa o envio. Baixe o PDF e envie pelo seu cliente de e-mail, ou verifique o domínio.`,
+    }, { status: 400 });
+  }
+  const remetente = `${nomeEmpresa(emp)} <${emp.email_remetente}>`;
 
   const { data: p } = await supa.from('propostas')
     .select('*, oportunidades(*)').eq('id', proposta_id).maybeSingle();
@@ -95,11 +121,15 @@ export async function POST(req: Request) {
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(req.url).origin;
   const link = `${base}/api/comercial/pdf?proposta=${proposta_id}`;
 
+  const cor = emp.cor_marca || '#FD1843';
+  const logo = urlLogo(emp.logo_path);
   const html = `<div style="font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#0D0D0F;max-width:640px">
+${logo ? `<img src="${logo}" alt="${nomeEmpresa(emp)}" style="max-height:40px;max-width:160px;object-fit:contain;margin-bottom:18px">` : ''}
 ${String(corpo).split('\n').map(l => l.trim() ? `<p style="margin:0 0 10px">${l.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>` : '<br>').join('')}
-<p style="margin:22px 0"><a href="${link}" style="background:#FD1843;color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Abrir a proposta</a></p>
+<p style="margin:22px 0"><a href="${link}" style="background:${cor};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Abrir a proposta</a></p>
 <hr style="border:0;border-top:1px solid #E6E6EA;margin:22px 0">
-<p style="font-size:11px;color:#6B6B75;margin:0">Se73um Technology · Modo Modular</p>
+<p style="font-size:11px;color:#6B6B75;margin:0">${nomeEmpresa(emp)}${emp.telefone ? ` · ${emp.telefone}` : ''}${emp.site ? ` · ${emp.site}` : ''}</p>
+<p style="font-size:10px;color:#9A9AA3;margin:6px 0 0">by Se73um Technology</p>
 </div>`;
 
   try {
@@ -110,7 +140,7 @@ ${String(corpo).split('\n').map(l => l.trim() ? `<p style="margin:0 0 10px">${l.
         from: remetente,
         to: [String(para).trim()],
         cc: copia ? [String(copia).trim()] : undefined,
-        reply_to: undefined,
+        reply_to: emp.email ?? undefined,
         subject: assunto,
         html,
       }),

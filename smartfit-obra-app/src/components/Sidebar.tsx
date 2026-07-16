@@ -47,6 +47,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
     ...(gestor ? [{ titulo: 'Gestão', itens: [
       { href: '/metas', label: 'Metas', ic: '◇' },
       ...(papel === 'admin' ? [{ href: '/equipe', label: 'Equipe & Acessos', ic: '◎' }] : []),
+      ...(papel === 'admin' ? [{ href: '/empresa', label: 'Minha Empresa', ic: '⌂' }] : []),
     ]}] : []),
   ];
 

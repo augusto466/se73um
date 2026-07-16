@@ -45,7 +45,7 @@ export default function EnviarProposta({ propostaId, onFechar }: { propostaId: n
   return (
     <div style={{ border: '1px solid var(--line-strong)', borderLeft: '3px solid var(--brand)', borderRadius: 8, padding: 14, marginBottom: 14, background: 'var(--surface-2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-        <b style={{ fontSize: 13 }}>Enviar {d.proposta.versao} ao cliente</b>
+        <b style={{ fontSize: 13 }}>Enviar {d.proposta.versao} ao cliente{d.remetente && <span className="hint" style={{ fontWeight: 400 }}> · de {d.remetente}</span>}</b>
         <span className="hint">o sistema prepara; você confere e envia</span>
       </div>
 
@@ -80,10 +80,11 @@ export default function EnviarProposta({ propostaId, onFechar }: { propostaId: n
         &quot;proposta&quot; no funil e a versão fica marcada como enviada.
       </p>
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn" disabled={ocupado || !f.para.trim()} onClick={enviar}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button className="btn" disabled={ocupado || !f.para.trim() || !d.pode_enviar} onClick={enviar}>
           {ocupado ? 'enviando…' : 'Enviar'}
         </button>
+        {!d.pode_enviar && <span className="hint" style={{ color: 'var(--brand)' }}>configure o remetente em Minha Empresa</span>}
         <a className="mini" href={`/api/comercial/pdf?proposta=${propostaId}`} target="_blank" rel="noreferrer">ver a proposta antes</a>
         <button className="mini" onClick={onFechar}>cancelar</button>
       </div>
