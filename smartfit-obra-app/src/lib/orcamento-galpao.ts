@@ -41,9 +41,41 @@ export type OrcamentoGalpao = {
   sem_preco: string[];
 };
 
-/** Casa a descrição do item com uma composição da base, por palavras-chave. */
+/**
+ * Casa o item com uma composição da base.
+ *
+ * A UNIDADE É ELIMINATÓRIA — e essa é a lição de um erro caro: sem checar a
+ * unidade, "técnico de segurança (horista)" casava com a composição
+ * "(mensalista)" e o sistema multiplicava 384 horas por um salário mensal.
+ * Deu R$ 2,5 milhões num item de R$ 12 mil.
+ *
+ * Texto parecido não basta: o que o item MEDE tem que bater com o que a
+ * composição PRECIFICA.
+ */
+const UNI_EQUIV: Record<string, string[]> = {
+  M2: ['M2', 'M²', 'M2 ', 'm2'],
+  M3: ['M3', 'M³', 'm3'],
+  M: ['M', 'ML', 'm'],
+  KG: ['KG', 'kg'],
+  UN: ['UN', 'UND', 'UNID', 'PC', 'CJ'],
+  H: ['H', 'HORA', 'HR'],
+  MES: ['MES', 'MÊS', 'MESES'],
+  L: ['L', 'LITRO'],
+};
+
+/** Normaliza a unidade para comparar. Devolve null quando não reconhece. */
+function normUnidade(u: string | null | undefined): string | null {
+  if (!u) return null;
+  const x = String(u).toUpperCase().replace(/[^A-Z0-9²³]/g, '');
+  for (const [chave, variantes] of Object.entries(UNI_EQUIV)) {
+    if (variantes.some(v => v.toUpperCase().replace(/[^A-Z0-9²³]/g, '') === x)) return chave;
+  }
+  return x || null;
+}
+
 function acharPreco(
   desc: string,
+  unidade: string | null,
   comps: { codigo: string; base_id: string; descricao: string; custo_unitario: number; unidade: string | null }[]
 ) {
   const norm = (s: string) => s.toLowerCase()
@@ -52,14 +84,23 @@ function acharPreco(
 
   const alvo = norm(desc);
   const palavras = alvo.split(' ').filter(w => w.length > 3);
+  const uAlvo = normUnidade(unidade);
 
   let melhor: any = null, melhorScore = 0;
   for (const c of comps) {
+    // 1) a unidade tem que bater. Não é desempate: é eliminatória.
+    const uComp = normUnidade(c.unidade);
+    if (uAlvo && uComp && uAlvo !== uComp) continue;
+
+    // 2) só então compara o texto
     const cd = norm(c.descricao);
     let score = 0;
     for (const w of palavras) if (cd.includes(w)) score += w.length;
-    // normaliza pelo tamanho, senão descrição longa sempre ganha
-    const s = score / Math.max(alvo.length, 1);
+    let s = score / Math.max(alvo.length, 1);
+
+    // 3) bônus quando a unidade bate explicitamente (contra composição sem unidade)
+    if (uAlvo && uComp && uAlvo === uComp) s *= 1.15;
+
     if (s > melhorScore) { melhorScore = s; melhor = c; }
   }
   return melhorScore > 0.30 ? melhor : null;
@@ -161,7 +202,7 @@ export function orcarGalpao(
 
   // ---------- 4) PREÇO: casa cada item com a base ----------
   for (const i of [...itensFund, ...itensGeo]) {
-    const c = acharPreco(i.descricao, comps);
+    const c = acharPreco(i.descricao, i.unidade, comps);
     if (!c) semPreco.push(`${i.etapa}: ${i.descricao.slice(0, 60)}`);
     const cu = c?.custo_unitario ?? 0;
     itens.push({
@@ -176,16 +217,26 @@ export function orcarGalpao(
 
   // ---------- 5) ADMINISTRAÇÃO E CANTEIRO (escalam com o prazo) ----------
   if (p.prazo_meses) {
+    // Cada função tem a unidade em que o SINAPI a precifica, e essa unidade
+    // manda. Técnico de segurança é MENSALISTA (código 100321) — não existe
+    // versão horista dele. Inventar um item horista foi o que gerou o erro de
+    // R$ 2,5 mi: 384 h × um salário mensal.
     const admin: ItemQuant[] = [
-      { etapa: 'ADMINISTRATIVO DE OBRAS', descricao: 'Engenheiro civil de obra junior (horista)', unidade: 'H', quantidade: Math.round(p.prazo_meses * 38.4) },
-      { etapa: 'ADMINISTRATIVO DE OBRAS', descricao: 'Encarregado geral de obras (mensalista)', unidade: 'MES', quantidade: p.prazo_meses },
-      { etapa: 'ADMINISTRATIVO DE OBRAS', descricao: 'Tecnico em seguranca do trabalho (horista)', unidade: 'H', quantidade: Math.round(p.prazo_meses * 76.8) },
-      { etapa: 'SERVIÇOS PRELIMINARES', descricao: 'Locacao de container 2,30 x 6,00 m, alt. 2,50 m, com 1 sanitario, para escritorio, completo', unidade: 'MES', quantidade: p.prazo_meses },
-      { etapa: 'SERVIÇOS PRELIMINARES', descricao: 'Locacao de container 2,30 x 6,00 m, alt. 2,50 m, para sanitario, com 4 bacias, 8 chuveiros', unidade: 'MES', quantidade: p.prazo_meses },
+      { etapa: 'ADMINISTRATIVO DE OBRAS', descricao: 'Engenheiro civil de obra junior com encargos complementares', unidade: 'H',
+        quantidade: Math.round(p.prazo_meses * 38.4), nota: `${p.prazo_meses} meses × 38,4 h — meio período` },
+      { etapa: 'ADMINISTRATIVO DE OBRAS', descricao: 'Encarregado geral de obras com encargos complementares', unidade: 'MES',
+        quantidade: p.prazo_meses },
+      { etapa: 'ADMINISTRATIVO DE OBRAS', descricao: 'Tecnico em seguranca do trabalho com encargos complementares', unidade: 'MES',
+        quantidade: p.prazo_meses, nota: 'o SINAPI precifica esta função por mês (cód. 100321), não por hora' },
+      { etapa: 'SERVIÇOS PRELIMINARES', descricao: 'Locacao de container para escritorio, 2,30 x 6,00 m, alt. 2,50 m, com 1 sanitario, completo', unidade: 'MES', quantidade: p.prazo_meses },
+      { etapa: 'SERVIÇOS PRELIMINARES', descricao: 'Locacao de container sanitario, 2,30 x 6,00 m, alt. 2,50 m, com 4 bacias, 8 chuveiros, 1 lavatorio e 1 mictorio', unidade: 'MES', quantidade: p.prazo_meses },
       { etapa: 'SERVIÇOS PRELIMINARES', descricao: 'Equipamento de protecao individual EPI e equipamento de protecao coletiva EPC', unidade: 'MES', quantidade: p.prazo_meses },
+      { etapa: 'SERVIÇOS PRELIMINARES', descricao: 'Mobilizacao e desmobilizacao', unidade: 'UN', quantidade: 2 },
+      { etapa: 'SERVIÇOS PRELIMINARES', descricao: 'Ligacao provisoria de luz e forca', unidade: 'UN', quantidade: 1 },
+      { etapa: 'SERVIÇOS PRELIMINARES', descricao: 'Ligacao provisoria de agua, incluso retirada do esgoto sanitario', unidade: 'UN', quantidade: 1 },
     ];
     for (const i of admin) {
-      const c = acharPreco(i.descricao, comps);
+      const c = acharPreco(i.descricao, i.unidade, comps);
       if (!c) semPreco.push(`${i.etapa}: ${i.descricao.slice(0, 60)}`);
       const cu = c?.custo_unitario ?? 0;
       itens.push({
@@ -219,6 +270,19 @@ export function orcarGalpao(
 
   if (semPreco.length) {
     avisos.push(`${semPreco.length} item(ns) sem preço na base — entraram zerados. Sincronize o SINAPI de GO ou cadastre a composição.`);
+  }
+
+  // Trava de sanidade: um item horista com custo unitário de salário mensal é
+  // casamento errado, não preço alto. Melhor gritar que entregar R$ 2,5 mi num
+  // item de R$ 12 mil.
+  const TETO: Record<string, number> = { H: 500, M2: 5000, M: 3000, KG: 200, M3: 5000, MES: 60000 };
+  const suspeitos = itens.filter(i => {
+    const u = (i.unidade ?? '').toUpperCase();
+    const teto = TETO[u];
+    return teto !== undefined && i.custo_unitario > teto;
+  });
+  for (const s of suspeitos) {
+    avisos.push(`SUSPEITO — "${s.descricao.slice(0, 50)}" está a ${s.custo_unitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por ${s.unidade}. Provável casamento errado com uma composição de outra unidade. Confira antes de usar.`);
   }
 
   return {
