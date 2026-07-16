@@ -22,6 +22,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
     ]},
     ...(gestor ? [{ titulo: 'Comercial', itens: [
       { href: '/comercial', label: 'Pipeline', ic: '◇' },
+      { href: '/galpao', label: 'Orçar Galpão', ic: '⬡' },
       { href: '/base-precos', label: 'Base de Preços', ic: '◈' },
     ]}] : []),
     { titulo: 'Contrato', itens: [

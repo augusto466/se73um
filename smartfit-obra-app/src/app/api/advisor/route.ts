@@ -3,6 +3,8 @@ import { montarContexto } from '@/lib/contexto';
 import { simular, impactoEmTexto, type EventoCron, type Dependencia } from '@/lib/replanejamento';
 import { gerar as gerarOrcamento, compararComReal, type ModeloItem } from '@/lib/orcamento';
 import { historico as sinapiHistorico, indicadores as sinapiIndicadores, explodir as sinapiExplodir, UF_PADRAO } from '@/lib/sinapi';
+import { orcarGalpao } from '@/lib/orcamento-galpao';
+import { consultar as consultarGerdau } from '@/lib/gerdau';
 import { MODELO, outputConfig, cacheBreakpoint, montarSystem, logUso } from '@/lib/ia';
 
 export const maxDuration = 60;
@@ -58,7 +60,8 @@ VOCÊ NÃO É SÓ CONSELHEIRO — VOCÊ CONSTRÓI:
 SUAS FERRAMENTAS:
 - buscar_acervo: pesquisa nos projetos, documentos e anexos do GED. Use quando a pergunta envolver o conteúdo de um documento, memorial, projeto ou contrato anexado. Se a busca não retornar nada, diga que não encontrou no acervo.
 - consultar_sinapi: preço, histórico de 12 meses de uma composição SINAPI, ou os indicadores econômicos (INCC, IPCA, IGP-M). Use quando perguntarem quanto um insumo/serviço subiu, ou para embasar reajuste contratual. Roda na hora.
-- simular_orcamento: gera o orçamento de uma obra nova a partir das premissas (área de projeção, laje, prazo, padrão). Roda na hora, sem gravar. Devolve custo, BDI, preço, preço/m² e o comparativo com o custo real de obras já executadas. Use SEMPRE que o usuário perguntar quanto custa/quanto cobrar por uma obra — nunca chute preço de cabeça.
+- orcar_galpao: orça um galpão por ENGENHARIA — a estrutura sai das tabelas do manual Gerdau (perfil e peso reais para o vão/altura/vento), o fechamento sai da geometria com desconto de porta, a fundação sai das reações do pórtico. Use SEMPRE que a obra for um galpão metálico e você tiver as dimensões. É muito melhor que o paramétrico: prefira este.
+- simular_orcamento: orçamento paramétrico por índice médio (kg/m² de obra anterior). Use só quando não tiver as dimensões do galpão, ou quando a obra não for um galpão em pórtico (área de projeção, laje, prazo, padrão). Roda na hora, sem gravar. Devolve custo, BDI, preço, preço/m² e o comparativo com o custo real de obras já executadas. Use SEMPRE que o usuário perguntar quanto custa/quanto cobrar por uma obra — nunca chute preço de cabeça.
 - simular_replanejamento: roda o cenário e devolve o impacto (datas em cascata, curva de faturamento, alertas contratuais) SEM gravar nada. Use SEMPRE antes de propor uma revisão — inclusive quando o usuário já disser o que quer fazer. Leia o resultado e comente com os números.
 - aplicar_replanejamento: PROPÕE gravar a revisão. Só use depois de simular e de o usuário concordar com o cenário. Exige motivo. O usuário ainda confirma num cartão antes de executar.
 - buscar_pessoa: encontra colaboradores pelo nome/função. Roda na hora, sem confirmação. Use SEMPRE antes de atribuir trabalho a alguém.
@@ -175,6 +178,40 @@ const FERRAMENTAS = [
         evento_id: { type: 'string', description: 'Evento de medição vinculado, ex.: E03' },
       },
       required: ['descricao'],
+    },
+  },
+  {
+    name: 'orcar_galpao',
+    description: 'Orça um galpão metálico por engenharia: manual Gerdau para a estrutura, geometria para fechamento/cobertura/piso, reações do pórtico para a fundação. Roda na hora, sem gravar. Prefira este ao simular_orcamento quando for galpão e houver dimensões.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        vao: { type: 'number', description: 'Vão livre L em metros (15 a 50) — obrigatório' },
+        comprimento: { type: 'number', description: 'Comprimento do galpão em metros — obrigatório' },
+        altura: { type: 'number', description: 'Pé-direito H em metros (até 12) — obrigatório' },
+        espacamento: { type: 'number', description: 'Entre pórticos: 6, 9 ou 12 m. Padrão 6' },
+        v0: { type: 'number', description: 'Vento básico NBR 6123. Goiás = 30 m/s. Padrão 30' },
+        fechamento: { type: 'string', enum: ['alvenaria_total', 'alvenaria_parcial', 'isopainel', 'tp40'] },
+        altura_alvenaria: { type: 'number', description: 'Só para alvenaria_parcial: até que altura vai o bloco' },
+        cobertura: { type: 'string', enum: ['tp40_branca', 'tp40_galvanizada', 'isotermica_pir'] },
+        piso: { type: 'string', enum: ['industrial_20', 'industrial_25', 'industrial_30', 'polido', 'nenhum'] },
+        area_laje: { type: 'number', description: 'Mezanino em steel deck, m²' },
+        area_terreno: { type: 'number' },
+        prazo_meses: { type: 'number' },
+        portas: {
+          type: 'array',
+          description: 'A área delas é descontada do fechamento',
+          items: {
+            type: 'object',
+            properties: {
+              tipo: { type: 'string', enum: ['enrolar', 'seccional', 'pivotante', 'social'] },
+              largura: { type: 'number' }, altura: { type: 'number' }, quantidade: { type: 'number' },
+            },
+            required: ['tipo', 'largura', 'altura', 'quantidade'],
+          },
+        },
+      },
+      required: ['vao', 'comprimento', 'altura'],
     },
   },
   {
@@ -336,6 +373,44 @@ async function detalharPedido(pedidoId: number, obrasPermitidas: number[], papel
     orcado = o;
   }
   return { pedido: p, cotacoes: cots ?? [], vencedora: venc, orcado };
+}
+
+/** Orça um galpão por engenharia (manual Gerdau + geometria). */
+async function executarGalpao(input: any) {
+  const brl = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const db = supabaseAdmin();
+  const { data: comps } = await db.from('composicoes')
+    .select('codigo, base_id, descricao, custo_unitario, unidade').eq('ativo', true);
+
+  const p: any = {
+    vao: Number(input.vao), comprimento: Number(input.comprimento), altura: Number(input.altura),
+    espacamento: Number(input.espacamento ?? 6), v0: Number(input.v0 ?? 30),
+    fechamento: input.fechamento ?? 'isopainel',
+    altura_alvenaria: input.altura_alvenaria,
+    cobertura: input.cobertura ?? 'isotermica_pir',
+    piso: input.piso ?? 'industrial_20',
+    area_laje: input.area_laje, area_terreno: input.area_terreno,
+    prazo_meses: input.prazo_meses, portas: input.portas ?? [],
+  };
+
+  const r: any = orcarGalpao(p, (comps ?? []) as any, { bdi_pct: 0.25 });
+  if (r.erro) return `Não deu para orçar: ${r.erro}`;
+
+  const L: string[] = [];
+  L.push(`GALPÃO ${p.vao} × ${p.comprimento} m, pé-direito ${p.altura} m — ${r.geometria.areaProjecao} m² de projeção`);
+  L.push(`\nESTRUTURA (manual Gerdau, estágio ${r.estrutura.estagio}):`);
+  L.push(`  Viga ${r.estrutura.perfis.viga} | Coluna ${r.estrutura.perfis.coluna} | ${r.estrutura.n_porticos} pórticos`);
+  L.push(`  Peso: ${r.estrutura.peso_total_kg.toLocaleString('pt-BR')} kg (${r.estrutura.taxa_kg_m2} kg/m²)`);
+  L.push(`  Reações por base: Rv ${r.estrutura.reacoes.rv1} kN | Rh ${r.estrutura.reacoes.rh1} kN | Mx ${r.estrutura.reacoes.mx1} kN·m`);
+  if (r.fundacao) L.push(`\nFUNDAÇÃO: ${r.fundacao.n_bases} bases × ${r.fundacao.estacas_por_base} estaca(s) = ${r.fundacao.metros_estaca} m — carga de ${r.fundacao.carga_por_base_tf} tf/base`);
+  L.push(`\nGEOMETRIA: cobertura ${r.geometria.areaCobertura} m² | fachada ${r.geometria.areaFachadaBruta} m² − ${r.geometria.areaPortas} m² de portas = ${r.geometria.areaFachadaLiquida} m²`);
+  L.push(`\nCUSTO: ${brl(r.custo_total)} | BDI ${r.bdi_efetivo.toFixed(1)}% | PREÇO: ${brl(r.preco_total)}`);
+  L.push(`Custo/m²: ${brl(r.custo_m2)} | Preço/m²: ${brl(r.preco_m2)}`);
+  L.push('\nPor etapa:');
+  r.etapas.forEach((e: any) => L.push(`  ${e.etapa}: ${brl(e.preco)} (${e.pct}%)`));
+  if (r.avisos.length) { L.push('\nAVISOS (leia e repasse ao usuário o que importar):'); r.avisos.forEach((a: string) => L.push(`  - ${a}`)); }
+  L.push('\nIsto é PRÉ-DIMENSIONAMENTO. O manual Gerdau é explícito: projeto executivo exige profissional habilitado. Serve para orçar, não para construir.');
+  return L.join('\n');
 }
 
 /** Consulta a base SINAPI ao vivo. */
@@ -642,6 +717,10 @@ export async function POST(req: Request) {
             } else if (u.name === 'buscar_pessoa') {
               emitir({ t: 'busca', v: `procurando "${input.termo ?? ''}"` });
               const res = await executarBuscaPessoa(String(input.termo ?? ''));
+              resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
+            } else if (u.name === 'orcar_galpao') {
+              emitir({ t: 'busca', v: `orçando galpão ${input.vao}×${input.comprimento} m` });
+              const res = await executarGalpao(input);
               resultados.push({ type: 'tool_result', tool_use_id: u.id, content: res });
             } else if (u.name === 'consultar_sinapi') {
               emitir({ t: 'busca', v: `consultando SINAPI: ${input.tipo}${input.codigo ? ` ${input.codigo}` : ''}` });
