@@ -10,7 +10,8 @@
  * MODO para o que é seu (estrutura metálica, isopainel, montagem).
  */
 
-import { pesoEstrutura, fundacao } from './gerdau';
+import { pesoEstrutura } from './gerdau';
+import { dimensionarFundacao, PERFIS_TIPICOS, type Camada } from './fundacao';
 import { quantitativos, geometria, type Premissas, type ItemQuant } from './galpao';
 
 export type { Premissas };
@@ -28,7 +29,7 @@ export type ItemOrcado = ItemQuant & {
 export type OrcamentoGalpao = {
   geometria: ReturnType<typeof geometria>;
   estrutura: any;
-  fundacao: ReturnType<typeof fundacao> | null;
+  fundacao: ReturnType<typeof dimensionarFundacao> | null;
   itens: ItemOrcado[];
   etapas: { etapa: string; custo: number; preco: number; pct: number }[];
   custo_total: number;
@@ -67,7 +68,7 @@ function acharPreco(
 export function orcarGalpao(
   p: Premissas,
   comps: { codigo: string; base_id: string; descricao: string; custo_unitario: number; unidade: string | null }[],
-  opcoes: { bdi_pct?: number; preco_aco_kg?: number; capacidade_estaca_tf?: number } = {}
+  opcoes: { bdi_pct?: number; preco_aco_kg?: number } = {}
 ): OrcamentoGalpao | { erro: string } {
   const bdi = opcoes.bdi_pct ?? 0.25;
   const g = geometria(p);
@@ -104,25 +105,55 @@ export function orcarGalpao(
     });
   }
 
-  // ---------- 2) FUNDAÇÃO (a partir das reações reais) ----------
-  const fund = fundacao({
-    rv1: est.reacoes.rv1, rh1: est.reacoes.rh1, mx1: est.reacoes.mx1,
-    n_porticos: est.n_porticos,
-    capacidade_estaca_tf: opcoes.capacidade_estaca_tf,
-  });
-  avisos.push(fund.alerta);
+  // ---------- 2) FUNDAÇÃO (Décourt-Quaresma, NBR 6122) ----------
+  // O perfil de solo é o dado que decide. Com sondagem, é cálculo. Sem
+  // sondagem, é o método certo rodando sobre um chute — e o sistema diz isso.
+  const perfilKey = p.perfil_tipico ?? 'goiania_residual';
+  const perfil = PERFIS_TIPICOS[perfilKey];
+  const camadas: Camada[] = (p.camadas_solo as Camada[]) ?? perfil?.camadas ?? [];
+  const sondado = !!p.tem_sondagem && !!p.camadas_solo?.length;
 
+  const fund = dimensionarFundacao({
+    rv1: est.reacoes.rv1, rv2: est.reacoes.rv2,
+    rh1: est.reacoes.rh1, rh2: est.reacoes.rh2,
+    mx1: est.reacoes.mx1, mx2: est.reacoes.mx2,
+    n_bases: est.n_porticos * 2,
+    camadas,
+    diametro_cm: p.diametro_estaca_cm ?? 40,
+    tipo_estaca: p.tipo_estaca ?? 'helice_continua',
+    solo_sondado: sondado,
+    perfil_nome: sondado ? 'sondagem informada' : perfil?.nome,
+  });
+  avisos.push(...fund.alertas);
+  if (!sondado && perfil?.nota) avisos.push(`Perfil "${perfil.nome}": ${perfil.nota}`);
+
+  const est_ = fund.estaca;
+  const TIPO_ESTACA: Record<string, string> = {
+    helice_continua: 'Estaca hélice contínua monitorada',
+    escavada: 'Estaca escavada mecanicamente, sem fluido estabilizante',
+    raiz: 'Estaca raiz',
+    pre_moldada: 'Estaca pré-moldada de concreto',
+  };
   const itensFund: ItemQuant[] = [
-    { etapa: 'FUNDAÇÃO', descricao: 'Estaca escavada mecanicamente, sem fluido estabilizante, com 60 cm de diâmetro, concreto lançado por bomba lança',
+    { etapa: 'FUNDAÇÃO', descricao: `${TIPO_ESTACA[est_.tipo]}, com ${est_.diametro_cm} cm de diâmetro, concreto lançado por bomba lança`,
       unidade: 'M', quantidade: fund.metros_estaca,
-      nota: `${fund.n_bases} base(s) × ${fund.estacas_por_base} estaca(s) — carga de ${fund.carga_por_base_tf} tf por base` },
+      nota: `${fund.n_bases} base(s) × ${fund.estacas_por_base} estaca(s) × ${est_.profundidade_m} m — compressão ${fund.compressao_max_kn} kN, capacidade ${est_.R_admissivel_kn} kN (condicionante: ${fund.condicionante})` },
     { etapa: 'FUNDAÇÃO', descricao: 'Fabricação, montagem e desmontagem de fôrma para bloco de coroamento, em madeira serrada, e = 25 mm, 4 utilizações',
       unidade: 'M2', quantidade: Math.round(fund.volume_bloco_m3 * 3.5) },
     { etapa: 'FUNDAÇÃO', descricao: 'Concretagem de bloco de coroamento ou viga baldrame, fck 30 MPa, com uso de bomba',
       unidade: 'M3', quantidade: fund.volume_bloco_m3 },
     { etapa: 'FUNDAÇÃO', descricao: 'Armação de bloco utilizando aço ca-50 de 10 mm - montagem',
-      unidade: 'KG', quantidade: fund.aco_bloco_kg },
+      unidade: 'KG', quantidade: fund.aco_bloco_kg,
+      nota: fund.tracao_max_kn < 0 ? 'inclui armadura de tração ao longo de toda a estaca' : undefined },
   ];
+  // estaca tracionada leva armadura no comprimento todo — não é o mesmo detalhe
+  if (fund.tracao_max_kn < 0) {
+    itensFund.push({
+      etapa: 'FUNDAÇÃO', descricao: 'Armação de estaca utilizando aço ca-50 de 12,5 mm - montagem',
+      unidade: 'KG', quantidade: Math.round(fund.metros_estaca * 8.5),
+      nota: `tração de ${Math.abs(fund.tracao_max_kn)} kN exige armadura em todo o comprimento`,
+    });
+  }
 
   // ---------- 3) COMPOSIÇÃO (fechamento, cobertura, piso, portas) ----------
   const { itens: itensGeo, avisos: avisosGeo } = quantitativos(p);

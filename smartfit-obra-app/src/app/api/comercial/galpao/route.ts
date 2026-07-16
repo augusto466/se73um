@@ -30,10 +30,7 @@ export async function POST(req: Request) {
   const { data: comps } = await supa.from('composicoes')
     .select('codigo, base_id, descricao, custo_unitario, unidade').eq('ativo', true);
 
-  const orc = orcarGalpao(p, (comps ?? []) as any, {
-    bdi_pct: 0.25,
-    capacidade_estaca_tf: (p as any).capacidade_estaca_tf,
-  });
+  const orc = orcarGalpao(p, (comps ?? []) as any, { bdi_pct: 0.25 });
   if ('erro' in orc) return NextResponse.json({ erro: orc.erro }, { status: 400 });
 
   if (!gravar || !oportunidade_id) {

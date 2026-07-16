@@ -46,3 +46,18 @@ alter table public.oportunidade_premissas add column if not exists tem_sondagem_
 alter table public.propostas add column if not exists memoria_calculo jsonb;
 alter table public.propostas add column if not exists metodo text
   not null default 'parametrico' check (metodo in ('parametrico','engenharia','manual'));
+
+-- ---------- 3) FUNDAÇÃO POR NBR 6122 (Décourt-Quaresma) ----------
+-- A capacidade da estaca deixa de ser premissa e passa a ser CALCULADA a
+-- partir do N-SPT. Com sondagem, é cálculo. Sem, é o método certo sobre um
+-- perfil típico regional — e o sistema avisa.
+alter table public.oportunidade_premissas add column if not exists tipo_estaca text
+  check (tipo_estaca in ('escavada','helice_continua','raiz','pre_moldada'));
+alter table public.oportunidade_premissas add column if not exists diametro_estaca_cm numeric(6,2) default 40;
+alter table public.oportunidade_premissas add column if not exists perfil_tipico text;
+-- [{ate, nspt, solo}] — o boletim de sondagem agrupado em camadas
+alter table public.oportunidade_premissas add column if not exists camadas_solo jsonb;
+
+-- a coluna antiga vira histórico: a capacidade agora sai do cálculo
+comment on column public.oportunidade_premissas.capacidade_estaca_tf is
+  'OBSOLETO desde a fundação por NBR 6122. A capacidade é calculada por Décourt-Quaresma a partir do N-SPT.';

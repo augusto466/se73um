@@ -41,6 +41,15 @@ export type Premissas = {
   portas?: Porta[];
   area_terreno?: number;       // para limpeza e movimentação de terra
   prazo_meses?: number;
+
+  // ---- fundação (NBR 6122 / Décourt-Quaresma)
+  /** perfil de sondagem real. Se vier, o cálculo é de verdade. */
+  camadas_solo?: { ate: number; nspt: number; solo: 'argila' | 'silte_argiloso' | 'silte_arenoso' | 'areia' }[];
+  /** chave de PERFIS_TIPICOS. Usado quando não há sondagem — e o sistema avisa. */
+  perfil_tipico?: string;
+  tipo_estaca?: 'escavada' | 'helice_continua' | 'raiz' | 'pre_moldada';
+  diametro_estaca_cm?: number;
+  tem_sondagem?: boolean;
 };
 
 const arred = (v: number, c = 2) => Math.round(v * 10 ** c) / 10 ** c;

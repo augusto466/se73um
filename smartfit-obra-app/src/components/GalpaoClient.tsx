@@ -33,9 +33,16 @@ export default function GalpaoClient({ op }: { op?: any }) {
     fechamento: 'alvenaria_parcial', altura_alvenaria: 3,
     cobertura: 'isotermica_pir', piso: 'industrial_20', espessura_piso: 14,
     area_laje: '', area_terreno: '', prazo_meses: 5,
-    capacidade_estaca_tf: '', tem_sondagem: false,
+    tipo_estaca: 'helice_continua', diametro_estaca_cm: 40,
+    perfil_tipico: 'goiania_residual', tem_sondagem: false,
   });
   const [portas, setPortas] = useState<any[]>([{ tipo: 'enrolar', largura: 4, altura: 4.5, quantidade: 1 }]);
+  const [camadas, setCamadas] = useState<any[]>([
+    { ate: 4, nspt: 4, solo: 'argila' },
+    { ate: 8, nspt: 9, solo: 'silte_argiloso' },
+    { ate: 12, nspt: 18, solo: 'silte_arenoso' },
+    { ate: 20, nspt: 32, solo: 'silte_arenoso' },
+  ]);
   const [r, setR] = useState<any>(null);
   const [ocupado, setOcupado] = useState(false);
   const [verMemoria, setVerMemoria] = useState(false);
@@ -57,7 +64,9 @@ export default function GalpaoClient({ op }: { op?: any }) {
             cobertura: f.cobertura, piso: f.piso, espessura_piso: num(f.espessura_piso),
             area_laje: num(f.area_laje), area_terreno: num(f.area_terreno),
             prazo_meses: num(f.prazo_meses),
-            capacidade_estaca_tf: num(f.capacidade_estaca_tf),
+            tipo_estaca: f.tipo_estaca, diametro_estaca_cm: Number(f.diametro_estaca_cm),
+            perfil_tipico: f.perfil_tipico, tem_sondagem: f.tem_sondagem,
+            camadas_solo: f.tem_sondagem ? camadas.filter((c: any) => c.ate && c.nspt) : null,
             portas: portas.filter(p => p.quantidade > 0),
           },
         }),
@@ -183,15 +192,64 @@ export default function GalpaoClient({ op }: { op?: any }) {
             sem o laudo, a capacidade é premissa, não cálculo. A fundação é o item que mais surpreende em obra.
           </p>
           <div className="form-grid">
-            <div className="fg"><label>Capacidade da estaca Ø60 (tf)</label>
-              <input type="number" step="1" value={f.capacidade_estaca_tf}
-                onChange={e => setF({ ...f, capacidade_estaca_tf: e.target.value })} placeholder="do laudo de sondagem" /></div>
-            <div className="fg"><label>Tem sondagem?</label>
-              <select value={f.tem_sondagem ? '1' : '0'} onChange={e => setF({ ...f, tem_sondagem: e.target.value === '1' })}>
-                <option value="0">Não — a capacidade é estimativa</option>
-                <option value="1">Sim — capacidade do laudo</option>
+            <div className="fg"><label>Tipo de estaca</label>
+              <select value={f.tipo_estaca} onChange={e => setF({ ...f, tipo_estaca: e.target.value })}>
+                <option value="helice_continua">Hélice contínua monitorada</option>
+                <option value="escavada">Escavada mecanicamente</option>
+                <option value="raiz">Raiz</option>
+                <option value="pre_moldada">Pré-moldada de concreto</option>
+              </select></div>
+            <div className="fg"><label>Diâmetro (cm)</label>
+              <select value={f.diametro_estaca_cm} onChange={e => setF({ ...f, diametro_estaca_cm: Number(e.target.value) })}>
+                <option value="30">30 cm</option><option value="40">40 cm</option>
+                <option value="50">50 cm</option><option value="60">60 cm</option>
+                <option value="70">70 cm</option><option value="80">80 cm</option>
+              </select></div>
+            <div className="fg full"><label>Perfil do solo</label>
+              <select value={f.tem_sondagem ? 'sondagem' : f.perfil_tipico}
+                onChange={e => {
+                  if (e.target.value === 'sondagem') setF({ ...f, tem_sondagem: true });
+                  else setF({ ...f, tem_sondagem: false, perfil_tipico: e.target.value });
+                }}>
+                <option value="goiania_residual">Típico — Goiânia, argila porosa sobre solo residual</option>
+                <option value="goiania_raso">Típico — Goiânia, impenetrável raso (otimista)</option>
+                <option value="goiania_profundo">Típico — Goiânia, argila espessa (pessimista)</option>
+                <option value="sondagem">Tenho a sondagem — informar o SPT</option>
               </select></div>
           </div>
+
+          {f.tem_sondagem && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <h4 style={{ fontSize: 11.5 }}>PERFIL DE SONDAGEM (SPT)</h4>
+                <button className="mini" onClick={() => setCamadas((c: any) => [...c, { ate: '', nspt: '', solo: 'silte_argiloso' }])}>+ camada</button>
+              </div>
+              <table className="tab">
+                <thead><tr><th>Até a cota (m)</th><th>N-SPT médio</th><th>Solo</th><th></th></tr></thead>
+                <tbody>
+                  {camadas.map((c: any, i: number) => (
+                    <tr key={i}>
+                      <td><input type="number" step="0.5" value={c.ate} style={{ width: 90, padding: '4px 6px', fontSize: 12 }}
+                        onChange={e => setCamadas((l: any) => l.map((x: any, j: number) => j === i ? { ...x, ate: Number(e.target.value) } : x))} /></td>
+                      <td><input type="number" step="1" value={c.nspt} style={{ width: 80, padding: '4px 6px', fontSize: 12 }}
+                        onChange={e => setCamadas((l: any) => l.map((x: any, j: number) => j === i ? { ...x, nspt: Number(e.target.value) } : x))} /></td>
+                      <td><select value={c.solo} style={{ padding: '4px 6px', fontSize: 12 }}
+                        onChange={e => setCamadas((l: any) => l.map((x: any, j: number) => j === i ? { ...x, solo: e.target.value } : x))}>
+                        <option value="argila">Argila</option>
+                        <option value="silte_argiloso">Silte argiloso</option>
+                        <option value="silte_arenoso">Silte arenoso</option>
+                        <option value="areia">Areia</option>
+                      </select></td>
+                      <td style={{ textAlign: 'right' }}><button className="mini" onClick={() => setCamadas((l: any) => l.filter((_: any, j: number) => j !== i))}>✕</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="hint" style={{ marginTop: 6 }}>
+                Agrupe o boletim em camadas de N-SPT parecido. A cota é a profundidade final de cada camada.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -250,16 +308,57 @@ export default function GalpaoClient({ op }: { op?: any }) {
 
                   {r.fundacao && (
                     <>
-                      <h4 style={{ fontSize: 11.5, marginBottom: 8 }}>FUNDAÇÃO</h4>
-                      <table className="tab">
+                      <h4 style={{ fontSize: 11.5, marginBottom: 8 }}>
+                        FUNDAÇÃO — {r.fundacao.estaca.metodo}
+                      </h4>
+                      <table className="tab" style={{ marginBottom: 8 }}>
+                        <thead><tr><th>Combinação</th><th style={{ textAlign: 'right' }}>N (kN)</th><th style={{ textAlign: 'right' }}>M (kN·m)</th><th style={{ textAlign: 'right' }}>Compressão</th><th style={{ textAlign: 'right' }}>Tração</th></tr></thead>
                         <tbody>
-                          <tr><td>Bases</td><td>{r.fundacao.n_bases}</td></tr>
-                          <tr><td>Carga por base</td><td><b>{r.fundacao.carga_por_base_tf} tf</b></td></tr>
-                          <tr><td>Estacas por base</td><td>{r.fundacao.estacas_por_base}</td></tr>
-                          <tr><td>Total de estaca</td><td>{r.fundacao.metros_estaca} m</td></tr>
+                          <tr><td>Permanente + sobrecarga</td>
+                            <td style={{ textAlign: 'right' }}>{r.fundacao.combinacoes.permanente.N}</td>
+                            <td style={{ textAlign: 'right' }}>{r.fundacao.combinacoes.permanente.M}</td>
+                            <td style={{ textAlign: 'right' }}>{r.fundacao.combinacoes.permanente.compressao}</td>
+                            <td style={{ textAlign: 'right' }}>{r.fundacao.combinacoes.permanente.tracao}</td></tr>
+                          <tr><td>Permanente + vento</td>
+                            <td style={{ textAlign: 'right' }}>{r.fundacao.combinacoes.vento.N}</td>
+                            <td style={{ textAlign: 'right' }}>{r.fundacao.combinacoes.vento.M}</td>
+                            <td style={{ textAlign: 'right' }}><b>{r.fundacao.combinacoes.vento.compressao}</b></td>
+                            <td style={{ textAlign: 'right', color: r.fundacao.combinacoes.vento.tracao < 0 ? 'var(--brand)' : undefined }}>
+                              <b>{r.fundacao.combinacoes.vento.tracao}</b></td></tr>
                         </tbody>
                       </table>
-                      {r.fundacao.premissas.map((x: string, i: number) => <p key={i} className="hint" style={{ marginTop: 4 }}>· {x}</p>)}
+                      <table className="tab">
+                        <tbody>
+                          <tr><td>Estaca</td><td><b>{r.fundacao.estaca.tipo.replace('_', ' ')} Ø{r.fundacao.estaca.diametro_cm} cm × {r.fundacao.estaca.profundidade_m} m</b></td></tr>
+                          <tr><td>Condicionante</td><td><b style={{ color: r.fundacao.condicionante.includes('tração') ? 'var(--brand)' : undefined }}>{r.fundacao.condicionante}</b></td></tr>
+                          <tr><td>Resistência de ponta</td><td>{r.fundacao.estaca.ponta.R_kn} kN <span className="hint">(N={r.fundacao.estaca.ponta.n_usado}, K={r.fundacao.estaca.ponta.K}, α={r.fundacao.estaca.ponta.alfa})</span></td></tr>
+                          <tr><td>Resistência de fuste</td><td>{r.fundacao.estaca.fuste.R_kn} kN</td></tr>
+                          <tr><td>Capacidade admissível</td><td><b>{r.fundacao.estaca.R_admissivel_kn} kN ({r.fundacao.estaca.R_admissivel_tf} tf)</b> <span className="hint">FS 2,0</span></td></tr>
+                          <tr><td>Capacidade à tração</td><td>{r.fundacao.estaca.cap_tracao_kn} kN <span className="hint">(só fuste + peso próprio)</span></td></tr>
+                          <tr><td>Total</td><td>{r.fundacao.n_bases} bases × {r.fundacao.estacas_por_base} = <b>{r.fundacao.metros_estaca} m</b> de estaca</td></tr>
+                        </tbody>
+                      </table>
+                      <h5 style={{ fontSize: 10.5, margin: '8px 0 4px', color: 'var(--gray)' }}>ATRITO LATERAL POR CAMADA</h5>
+                      <table className="tab">
+                        <thead><tr><th>Trecho</th><th>Solo</th><th style={{ textAlign: 'right' }}>N</th><th style={{ textAlign: 'right' }}>N usado</th><th style={{ textAlign: 'right' }}>rl (kPa)</th><th style={{ textAlign: 'right' }}>Parcela</th></tr></thead>
+                        <tbody>
+                          {r.fundacao.estaca.fuste.detalhe.map((d: any, i: number) => (
+                            <tr key={i}>
+                              <td>{d.de} – {d.ate} m</td>
+                              <td><span className="hint">{d.solo.replace('_', ' ')}</span></td>
+                              <td style={{ textAlign: 'right' }}>{d.nspt}</td>
+                              <td style={{ textAlign: 'right' }}>{d.n_usado}{d.nspt > 15 && <span className="hint"> (limite)</span>}</td>
+                              <td style={{ textAlign: 'right' }}>{d.rl_kpa}</td>
+                              <td style={{ textAlign: 'right' }}>{d.parcela_kn} kN</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {!r.fundacao.solo_sondado && (
+                        <p style={{ fontSize: 12, marginTop: 8, padding: 8, background: 'var(--brand-soft)', borderRadius: 6, borderLeft: '3px solid var(--brand)' }}>
+                          <b>Solo presumido.</b> O método está certo; o dado de entrada é estimativa regional. Numa proposta, isto é risco.
+                        </p>
+                      )}
                     </>
                   )}
                 </div>

@@ -88,3 +88,65 @@ O system prompt manda **preferir este ao paramétrico** quando for galpão com d
 - Sem ponte rolante — muda o carregamento inteiro.
 - Os itens sem correspondência na base de preços entram **zerados** e o sistema avisa. Sincronize o SINAPI de GO.
 - A Moda Verão consumiu 49,23 kg/m² contra os ~26 kg/m² do Gerdau: se a estrutura da MODO for diferente (treliça, mezanino pesado), calibre o preço do kg, não o peso.
+
+---
+
+# FUNDAÇÃO — Décourt-Quaresma, NBR 6122:2019
+
+## Por que este método
+
+É o mais usado no Brasil para estaca a partir de SPT, e é **semiempírico** — nasceu de prova de carga, não de teoria pura. Para orçamento, é o que dá número defensável com o dado que existe.
+
+```
+R_ponta  = α · K · N_ponta · A_ponta
+R_fuste  = β · 10 · (N_fuste/3 + 1) · U · L
+R_adm    = (R_ponta + R_fuste) / 2        ← NBR 6122: FS global 2,0
+```
+
+**Detalhes que separam o cálculo do chute:**
+- **N do fuste limitado a 15** (Décourt). Acima disso o atrito não cresce proporcionalmente. Quem esquece, superestima a estaca.
+- **α = 0,30 para estaca escavada e hélice.** Elas mobilizam pouca ponta. Aplicar a fórmula crua sem o α é o erro clássico.
+- **N da ponta limitado a 50.** Acima é impenetrável; não se extrapola.
+
+## O limite que não se contorna
+
+A capacidade sai do **N-SPT**. Sem sondagem não há cálculo — há estimativa. O sistema faz as duas coisas, mas **nunca finge que uma é a outra**.
+
+**Com sondagem:** informe o perfil (cota, N-SPT, tipo de solo por camada) e o cálculo é de verdade.
+
+**Sem sondagem:** três perfis típicos de Goiânia — argila porosa sobre residual (o comum), impenetrável raso (otimista) e argila espessa (pessimista). O método roda certo, o dado é regional, e o sistema **grita** que o solo é presumido.
+
+Goiânia assenta sobre solo residual de micaxisto com camada superficial de **argila porosa colapsível** — que colapsa quando molha. Por isso os perfis típicos desprezam os primeiros metros.
+
+## A tração é que manda
+
+Descoberta que o cálculo revelou, e que muda o dimensionamento:
+
+No exemplo do manual (H=9, L=30, Q6), a base tem Rv=58 kN e Mx=124 kN·m. Num bloco de 2 estacas com 1,2 m de espaçamento:
+
+| Combinação | Compressão | Tração |
+|---|---|---|
+| Permanente + sobrecarga | 132 kN | **−74 kN** |
+| Permanente + vento | 201 kN | **−146 kN** |
+
+**A estaca de barlavento é arrancada.** Em base engastada de pórtico o momento é grande e o peso próprio é pequeno — isso é regra, não exceção.
+
+Consequências que o sistema trata:
+- O **comprimento** pode ser ditado pela tração, não pela compressão. O sistema diz qual foi o condicionante.
+- Na tração **só o fuste resiste** (a ponta não trabalha), mais o peso próprio da estaca.
+- Estaca tracionada leva **armadura em todo o comprimento** — não é o mesmo detalhe da comprimida. O sistema lança esse item separado.
+
+Dimensionar só pela carga vertical é o que arranca fundação de galpão em vendaval.
+
+## Memória de cálculo
+
+A tela mostra: as duas combinações com compressão e tração, o condicionante, resistência de ponta (com N, K e α usados), resistência de fuste **camada a camada** (com o N limitado marcado), capacidade admissível e à tração.
+
+Dá para conferir linha por linha — que é o que um orçamento de fundação precisa ter para ser defensável.
+
+## Limites
+
+- **Bloco de 2 estacas**, que é o padrão para base engastada de pórtico. Bloco de 3 ou 4 exigiria outro cálculo de binário.
+- Não verifica **recalque** — só capacidade. Para argila mole, recalque pode mandar.
+- Não trata **atrito negativo** (aterro sobre argila mole comprime a estaca para baixo).
+- O método é para estaca. **Sapata** exige outro cálculo, e em Goiânia a argila colapsível costuma inviabilizá-la mesmo.

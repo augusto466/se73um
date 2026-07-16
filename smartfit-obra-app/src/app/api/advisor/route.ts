@@ -60,7 +60,7 @@ VOCÊ NÃO É SÓ CONSELHEIRO — VOCÊ CONSTRÓI:
 SUAS FERRAMENTAS:
 - buscar_acervo: pesquisa nos projetos, documentos e anexos do GED. Use quando a pergunta envolver o conteúdo de um documento, memorial, projeto ou contrato anexado. Se a busca não retornar nada, diga que não encontrou no acervo.
 - consultar_sinapi: preço, histórico de 12 meses de uma composição SINAPI, ou os indicadores econômicos (INCC, IPCA, IGP-M). Use quando perguntarem quanto um insumo/serviço subiu, ou para embasar reajuste contratual. Roda na hora.
-- orcar_galpao: orça um galpão por ENGENHARIA — a estrutura sai das tabelas do manual Gerdau (perfil e peso reais para o vão/altura/vento), o fechamento sai da geometria com desconto de porta, a fundação sai das reações do pórtico. Use SEMPRE que a obra for um galpão metálico e você tiver as dimensões. É muito melhor que o paramétrico: prefira este.
+- orcar_galpao: orça um galpão por ENGENHARIA — a estrutura sai das tabelas do manual Gerdau (perfil e peso reais para o vão/altura/vento), o fechamento sai da geometria com desconto de porta, e a fundação é calculada por Décourt-Quaresma (NBR 6122) a partir do perfil de solo. Sem sondagem, ele usa perfil típico de Goiânia e AVISA que o solo é presumido — repasse esse aviso ao usuário, é risco de proposta. Use SEMPRE que a obra for um galpão metálico e você tiver as dimensões. É muito melhor que o paramétrico: prefira este.
 - simular_orcamento: orçamento paramétrico por índice médio (kg/m² de obra anterior). Use só quando não tiver as dimensões do galpão, ou quando a obra não for um galpão em pórtico (área de projeção, laje, prazo, padrão). Roda na hora, sem gravar. Devolve custo, BDI, preço, preço/m² e o comparativo com o custo real de obras já executadas. Use SEMPRE que o usuário perguntar quanto custa/quanto cobrar por uma obra — nunca chute preço de cabeça.
 - simular_replanejamento: roda o cenário e devolve o impacto (datas em cascata, curva de faturamento, alertas contratuais) SEM gravar nada. Use SEMPRE antes de propor uma revisão — inclusive quando o usuário já disser o que quer fazer. Leia o resultado e comente com os números.
 - aplicar_replanejamento: PROPÕE gravar a revisão. Só use depois de simular e de o usuário concordar com o cenário. Exige motivo. O usuário ainda confirma num cartão antes de executar.
@@ -198,6 +198,9 @@ const FERRAMENTAS = [
         area_laje: { type: 'number', description: 'Mezanino em steel deck, m²' },
         area_terreno: { type: 'number' },
         prazo_meses: { type: 'number' },
+        perfil_tipico: { type: 'string', enum: ['goiania_residual', 'goiania_raso', 'goiania_profundo'], description: 'Perfil de solo presumido, quando não há sondagem. Padrão: goiania_residual' },
+        tipo_estaca: { type: 'string', enum: ['helice_continua', 'escavada', 'raiz', 'pre_moldada'] },
+        diametro_estaca_cm: { type: 'number', description: '30 a 80. Padrão 40' },
         portas: {
           type: 'array',
           description: 'A área delas é descontada do fechamento',
@@ -402,7 +405,14 @@ async function executarGalpao(input: any) {
   L.push(`  Viga ${r.estrutura.perfis.viga} | Coluna ${r.estrutura.perfis.coluna} | ${r.estrutura.n_porticos} pórticos`);
   L.push(`  Peso: ${r.estrutura.peso_total_kg.toLocaleString('pt-BR')} kg (${r.estrutura.taxa_kg_m2} kg/m²)`);
   L.push(`  Reações por base: Rv ${r.estrutura.reacoes.rv1} kN | Rh ${r.estrutura.reacoes.rh1} kN | Mx ${r.estrutura.reacoes.mx1} kN·m`);
-  if (r.fundacao) L.push(`\nFUNDAÇÃO: ${r.fundacao.n_bases} bases × ${r.fundacao.estacas_por_base} estaca(s) = ${r.fundacao.metros_estaca} m — carga de ${r.fundacao.carga_por_base_tf} tf/base`);
+  if (r.fundacao) {
+    const fd = r.fundacao;
+    L.push(`\nFUNDAÇÃO (Décourt-Quaresma, NBR 6122, FS 2,0):`);
+    L.push(`  ${fd.estaca.tipo.replace('_',' ')} Ø${fd.estaca.diametro_cm} cm × ${fd.estaca.profundidade_m} m — ${fd.n_bases} bases × ${fd.estacas_por_base} = ${fd.metros_estaca} m`);
+    L.push(`  Compressão ${fd.compressao_max_kn} kN | Tração ${fd.tracao_max_kn} kN | Capacidade ${fd.estaca.R_admissivel_kn} kN`);
+    L.push(`  Condicionante: ${fd.condicionante}`);
+    L.push(`  Solo: ${fd.solo_sondado ? 'sondagem informada' : 'PERFIL PRESUMIDO — não é a sondagem da obra'}`);
+  }
   L.push(`\nGEOMETRIA: cobertura ${r.geometria.areaCobertura} m² | fachada ${r.geometria.areaFachadaBruta} m² − ${r.geometria.areaPortas} m² de portas = ${r.geometria.areaFachadaLiquida} m²`);
   L.push(`\nCUSTO: ${brl(r.custo_total)} | BDI ${r.bdi_efetivo.toFixed(1)}% | PREÇO: ${brl(r.preco_total)}`);
   L.push(`Custo/m²: ${brl(r.custo_m2)} | Preço/m²: ${brl(r.preco_m2)}`);
