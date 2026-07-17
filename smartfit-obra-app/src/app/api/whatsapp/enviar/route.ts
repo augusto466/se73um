@@ -32,23 +32,25 @@ export async function POST(req: Request) {
     if (!qualquer) return NextResponse.json({ erro: 'Nenhuma instância conectada.' }, { status: 400 });
   }
   const id = inst?.id ?? (await supa.from('wa_instancias').select('id').eq('status', 'conectado').limit(1).single()).data?.id;
+
   const status = inst?.status;
   if (status && status !== 'conectado') {
     return NextResponse.json({ erro: `A instância está "${status}". Conecte antes de enviar.` }, { status: 400 });
   }
 
-  // não iniciamos conversa com quem nunca falou com a gente: é o padrão
-  // clássico de spam e o caminho mais curto para o ban
   const { data: contato } = await supa.from('wa_contatos')
     .select('id, bloqueado').eq('jid', para_jid).maybeSingle();
   if (contato?.bloqueado) {
     return NextResponse.json({ erro: 'Este contato está bloqueado no sistema.' }, { status: 400 });
   }
-  if (!contato) {
-    return NextResponse.json({
-      erro: 'Este número nunca conversou com a instância. Iniciar conversa com desconhecido é o padrão que a Meta classifica como spam — peça para ele mandar a primeira mensagem.',
-    }, { status: 400 });
-  }
+
+  // A trava de "só responde quem falou primeiro" saiu quando o painel virou
+  // cliente: você inicia conversa no WhatsApp o tempo todo, e a regra travava
+  // o uso normal. O padrão que a Meta caça é disparo em massa para
+  // desconhecido — não uma conversa nova por vez, no seu ritmo.
+  //
+  // O risco não sumiu: mudou de lugar. Agora depende de você não usar isto
+  // para prospecção fria.
 
   const { data, error } = await supa.from('wa_fila').insert({
     instancia_id: id, para_jid, texto: String(texto).slice(0, 4000),
@@ -56,5 +58,8 @@ export async function POST(req: Request) {
   }).select('id').single();
   if (error) return NextResponse.json({ erro: error.message }, { status: 400 });
 
-  return NextResponse.json({ ok: true, fila_id: data.id, aviso: 'Na fila. O envio é lento de propósito — cadência de robô é o que denuncia robô.' });
+  return NextResponse.json({
+    ok: true, fila_id: data.id,
+    aviso: 'Na fila. O envio é lento de propósito — cadência de robô é o que denuncia robô.',
+  });
 }

@@ -5,14 +5,22 @@ export const dynamic = 'force-dynamic';
 
 export default async function Whatsapp() {
   const supabase = supabaseServer();
-  const [{ data: inst }, { data: contatos }, { data: colabs }, { data: msgs }] = await Promise.all([
+
+  // A inbox abre na lista de conversas, não nas mensagens soltas: o resumo
+  // vem materializado em wa_contatos, então isto é uma leitura barata mesmo
+  // com 20 mil mensagens no banco.
+  const [{ data: inst }, { data: contatos }, { data: colabs }] = await Promise.all([
     supabase.from('wa_instancias').select('*').order('id').limit(1).maybeSingle(),
-    supabase.from('wa_contatos').select('*').order('criado_em', { ascending: false }).limit(50),
+    supabase.from('wa_contatos').select('*')
+      .order('ultima_em', { ascending: false, nullsFirst: false }).limit(200),
     supabase.from('colaboradores').select('id, nome').eq('ativo', true).order('nome'),
-    supabase.from('wa_mensagens').select('*').order('criado_em', { ascending: false }).limit(40),
   ]);
+
   return (
-    <WhatsappClient instancia={inst} contatos={contatos ?? []}
-      colaboradores={colabs ?? []} mensagens={msgs ?? []} />
+    <WhatsappClient
+      instancia={inst}
+      contatos={contatos ?? []}
+      colaboradores={colabs ?? []}
+    />
   );
 }
