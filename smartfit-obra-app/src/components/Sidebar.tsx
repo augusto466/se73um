@@ -27,8 +27,7 @@ const gestor = papel === 'admin' || papel === 'contratante';
   ];
 
   const grupos: Grupo[] = cliente ? gruposCliente : [
-  const grupos: Grupo[] = [
-    { titulo: 'Comando', itens: [
+      { titulo: 'Comando', itens: [
       { href: '/meu-dia', label: 'Meu Dia', ic: '◈', badge: badges.meuDia },
       ...(gestor ? [{ href: '/painel-ceo', label: 'Cockpit', ic: '◉' }] : []),
       { href: '/obras', label: 'Obras', ic: '⬢' },
