@@ -81,7 +81,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
         <div className="side-brand">
           {logoEmpresa ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-              <img src={logoEmpresa} alt="Logo da empresa" style={{ maxHeight: 40, maxWidth: 160, objectFit: 'contain', alignSelf: 'flex-start' }} />
+              <img src={logoEmpresa} alt="Logo da empresa" style={{ maxHeight: 80, maxWidth: 320, objectFit: 'contain', alignSelf: 'flex-start' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, opacity: 0.5 }}>
                 <SimboloMini size={11} />
                 <span style={{ fontSize: 9.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>powered by Se<em style={{ fontStyle: 'normal', color: 'var(--brand)' }}>73</em>um</span>
