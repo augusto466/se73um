@@ -41,7 +41,7 @@ export default async function PainelLayout({ children }: { children: React.React
         <Topbar obra={ativa} />
         <div className="content">{children}</div>
       </div>
-      <Advisor />
+      {papel !== 'cliente' && <Advisor />}
     </div>
   );
 }

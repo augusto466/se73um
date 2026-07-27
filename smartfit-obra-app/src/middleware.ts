@@ -25,11 +25,29 @@ export async function middleware(req: NextRequest) {
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
-  if (user && path === '/login') {
+if (user && path === '/login') {
+    const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
     const url = req.nextUrl.clone();
-    url.pathname = '/meu-dia';
+    url.pathname = perfil?.papel === 'cliente' ? '/visao-cliente' : '/meu-dia';
     return NextResponse.redirect(url);
   }
+  // Guarda do cliente: ele so alcanca as rotas dele. Digitar /financeiro na URL
+  // nao renderiza tela de gestor — a RLS ja esvazia os dados, mas a tela nem
+  // chega a abrir. Lista-branca: o que nao esta aqui, redireciona.
+  if (user && !publica) {
+    const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
+    if (perfil?.papel === 'cliente') {
+      const liberadas = ['/visao-cliente', '/relatorios-cliente'];
+      const apiLiberada = path.startsWith('/api/documentos/download-cliente') || path.startsWith('/api/obra-ativa') || path.startsWith('/api/auth');
+      const ehRota = liberadas.some(r => path === r || path.startsWith(r + '/'));
+      if (!ehRota && !apiLiberada && !path.startsWith('/_next')) {
+        const url = req.nextUrl.clone();
+        url.pathname = '/visao-cliente';
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
   return res;
 }
 

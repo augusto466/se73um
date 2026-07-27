@@ -13,7 +13,20 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
   const path = usePathname();
   const [aberta, setAberta] = useState(false);
   const gestor = papel === 'admin' || papel === 'contratante';
+const gestor = papel === 'admin' || papel === 'contratante';
 
+  // Cliente vê lista-branca: só o que for liberado explicitamente aqui, e nada
+  // mais. Curto-circuito antes do menu normal — item novo no painel não vaza
+  // para o cliente por descuido, porque ele nunca alcança a lista de gestor.
+  const cliente = papel === 'cliente';
+  const gruposCliente: Grupo[] = [
+    { titulo: 'Acompanhamento', itens: [
+      { href: '/visao-cliente', label: 'Visão da Obra', ic: '◫' },
+      { href: '/relatorios-cliente', label: 'Relatórios', ic: '⬠' },
+    ]},
+  ];
+
+  const grupos: Grupo[] = cliente ? gruposCliente : [
   const grupos: Grupo[] = [
     { titulo: 'Comando', itens: [
       { href: '/meu-dia', label: 'Meu Dia', ic: '◈', badge: badges.meuDia },
@@ -59,8 +72,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
   }
 
   const iniciais = (perfil?.nome ?? perfil?.email ?? '?').slice(0, 2).toUpperCase();
-  const papelLabel = papel === 'admin' ? 'Administrador' : papel === 'contratante' ? 'Contratante' : 'Contratada';
-
+  const papelLabel = papel === 'admin' ? 'Administrador' : papel === 'contratante' ? 'Contratante' : papel === 'cliente' ? 'Cliente' : 'Contratada';
   return (
     <>
       <button className="burger" onClick={() => setAberta(a => !a)}

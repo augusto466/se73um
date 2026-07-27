@@ -78,7 +78,15 @@ export default function DocumentosClient({ docsIniciais, obras, papel }:
     if (d.arquivo_path) await apagarArquivo(d.arquivo_path);
     setDocs(ds => ds.filter(x => x.id !== d.id));
   }
-
+async function alternarCliente(d: any) {
+    const novo = !d.visivel_cliente;
+    if (novo && !d.arquivo_path && !confirm('Este documento ainda não tem arquivo anexado. Compartilhar mesmo assim?')) return;
+    setOcupado(true);
+    const { error } = await supabase.from('documentos').update({ visivel_cliente: novo }).eq('id', d.id);
+    setOcupado(false);
+    if (error) { alert(error.message); return; }
+    setDocs(ds => ds.map(x => x.id === d.id ? { ...x, visivel_cliente: novo } : x));
+  }
   return (
     <>
       <div className="kpis" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
@@ -171,7 +179,14 @@ export default function DocumentosClient({ docsIniciais, obras, papel }:
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button className="mini" onClick={() => editarValidade(d)}>validade</button>{' '}
-                      <button className="mini danger" onClick={() => excluir(d)}>×</button>
+                        {ehAdmin && <>
+                          <button className="mini" onClick={() => alternarCliente(d)}
+                            title={d.visivel_cliente ? 'Visível ao cliente — clique para ocultar' : 'Compartilhar com o cliente'}
+                            style={d.visivel_cliente ? { color: 'var(--ok)', borderColor: 'var(--ok)' } : undefined}>
+                            {d.visivel_cliente ? '✓ cliente' : 'cliente'}
+                          </button>{' '}
+                        </>}
+                        <button className="mini danger" onClick={() => excluir(d)}>×</button>
                     </td>
                   </tr>
                 );
