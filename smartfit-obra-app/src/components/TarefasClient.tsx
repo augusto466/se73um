@@ -2,9 +2,7 @@
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { fmtData } from '@/lib/contrato';
-
 const COLS = ['A fazer', 'Em execução', 'Em validação', 'Concluído'];
-
 export default function TarefasClient({ tarefasIniciais, eventos, obraId, centros, metricas }:
   { tarefasIniciais: any[]; eventos: any[]; obraId: number; centros: any[]; metricas: any[] }) {
   const [tarefas, setTarefas] = useState(tarefasIniciais);
@@ -12,7 +10,6 @@ export default function TarefasClient({ tarefasIniciais, eventos, obraId, centro
   const [form, setForm] = useState({ descricao: '', evento_id: '', responsavel: '', prioridade: 'media', prazo: '', centro_id: 'cc_operacoes', semObra: false });
   const supabase = supabaseBrowser();
   const hoje = new Date().toISOString().slice(0, 10);
-
   async function adicionar() {
     if (!form.descricao.trim()) { alert('Descreva a tarefa.'); return; }
     const { data: { user } } = await supabase.auth.getUser();
@@ -28,23 +25,24 @@ export default function TarefasClient({ tarefasIniciais, eventos, obraId, centro
     setTarefas(t => [data, ...t]);
     setForm({ ...form, descricao: '', evento_id: '', responsavel: '', prazo: '' });
   }
-
   async function mover(t: any, dir: number) {
     const coluna = Math.min(3, Math.max(0, t.coluna + dir));
     const { error } = await supabase.from('tarefas').update({ coluna }).eq('id', t.id);
     if (!error) setTarefas(ts => ts.map(x => x.id === t.id ? { ...x, coluna } : x));
   }
-
+  async function alternarCliente(t: any) {
+    const novo = !t.visivel_cliente;
+    const { error } = await supabase.from('tarefas').update({ visivel_cliente: novo }).eq('id', t.id);
+    if (!error) setTarefas(ts => ts.map(x => x.id === t.id ? { ...x, visivel_cliente: novo } : x));
+  }
   async function excluir(t: any) {
     if (!confirm('Excluir esta tarefa?')) return;
     const { error } = await supabase.from('tarefas').delete().eq('id', t.id);
     if (error) { alert('Sem permissão (apenas o criador ou o contratante).'); return; }
     setTarefas(ts => ts.filter(x => x.id !== t.id));
   }
-
   const vis = filtro ? tarefas.filter(t => t.centro_id === filtro) : tarefas;
   const nomeCentro = (id: string) => centros.find(c => c.id === id)?.nome ?? '—';
-
   return (
     <>
       <div className="panel">
@@ -75,7 +73,6 @@ export default function TarefasClient({ tarefasIniciais, eventos, obraId, centro
           <div className="fg" style={{justifyContent:'flex-end'}}><button className="btn" onClick={adicionar}>Adicionar tarefa</button></div>
         </div></div>
       </div>
-
       {metricas.filter((m:any)=>m.total>0).length > 0 && (
         <div className="panel">
           <div className="hd">
@@ -106,7 +103,6 @@ export default function TarefasClient({ tarefasIniciais, eventos, obraId, centro
           </div>
         </div>
       )}
-
       <div className="kanban">
         {COLS.map((c, ci) => (
           <div key={ci} className="kcol">
@@ -126,6 +122,11 @@ export default function TarefasClient({ tarefasIniciais, eventos, obraId, centro
                     <div className="acts">
                       {ci > 0 && <button className="mini" onClick={()=>mover(t,-1)}>← {COLS[ci-1]}</button>}
                       {ci < 3 && <button className="mini" onClick={()=>mover(t,1)}>{COLS[ci+1]} →</button>}
+                      <button className="mini" onClick={()=>alternarCliente(t)}
+                        title={t.visivel_cliente ? 'Visível ao cliente — clique para ocultar' : 'Mostrar ao cliente'}
+                        style={t.visivel_cliente ? { color: 'var(--ok)', borderColor: 'var(--ok)' } : undefined}>
+                        {t.visivel_cliente ? '✓ cliente' : 'cliente'}
+                      </button>
                       <button className="mini danger" onClick={()=>excluir(t)}>Excluir</button>
                     </div>
                   </div>
