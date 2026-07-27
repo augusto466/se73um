@@ -13,7 +13,6 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
   const path = usePathname();
   const [aberta, setAberta] = useState(false);
   const gestor = papel === 'admin' || papel === 'contratante';
-const gestor = papel === 'admin' || papel === 'contratante';
 
   // Cliente vê lista-branca: só o que for liberado explicitamente aqui, e nada
   // mais. Curto-circuito antes do menu normal — item novo no painel não vaza
