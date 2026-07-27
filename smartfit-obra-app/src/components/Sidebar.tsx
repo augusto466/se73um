@@ -21,6 +21,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
   const gruposCliente: Grupo[] = [
     { titulo: 'Acompanhamento', itens: [
       { href: '/visao-cliente', label: 'Visão da Obra', ic: '◫' },
+      { href: '/pedidos-cliente', label: 'Pedidos', ic: '◇' },
       { href: '/relatorios-cliente', label: 'Relatórios', ic: '⬠' },
     ]},
   ];
