@@ -45,7 +45,11 @@ export async function middleware(req: NextRequest) {
   // Guarda do cliente: ele so alcanca as rotas dele. Digitar /financeiro na URL
   // nao renderiza tela de gestor — a RLS ja esvazia os dados, mas a tela nem
   // chega a abrir. Lista-branca: o que nao esta aqui, redireciona.
-  Get-Content "C:\Users\AUGUSTO\Projetos\se73um\smartfit-obra-app\src\middleware.ts" | Select-String "senha_provisoria|profiles|papel === 'cliente'" -Context 2,2
+ // Guarda do cliente: ele so alcanca as rotas dele. Digitar /financeiro na URL
+  // nao renderiza tela de gestor — a RLS ja esvazia os dados, mas a tela nem
+  // chega a abrir. Lista-branca: o que nao esta aqui, redireciona.
+  if (user && !publica) {
+    const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
     const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
     if (perfil?.papel === 'cliente') {
       const liberadas = ['/visao-cliente', '/pedidos-cliente', '/relatorios-cliente', '/pedido-compra'];
