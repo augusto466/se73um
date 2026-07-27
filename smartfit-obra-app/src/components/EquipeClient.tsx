@@ -48,7 +48,8 @@ export default function EquipeClient({ perfisIniciais, obras, vinculosIniciais }
             <div className="fg"><label>Empresa</label><input value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} placeholder="Ex.: Modo Modular LTDA" /></div>
             <div className="fg"><label>Papel</label>
               <select value={form.papel} onChange={e => setForm({ ...form, papel: e.target.value })}>
-                <option value="contratante">Contratante (cliente da obra)</option>
+                <option value="cliente">Cliente (só acompanha a obra, não vê custos)</option>
+                <option value="contratante">Contratante (gestão, vê financeiro)</option>
                 <option value="contratada">Contratada (construtora)</option>
                 <option value="admin">Administrador (vê todas as obras)</option>
               </select></div>

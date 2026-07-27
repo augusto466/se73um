@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   if (perfil?.papel !== 'admin') return NextResponse.json({ erro: 'Apenas administradores.' }, { status: 403 });
 
   const { nome, email, papel, empresa } = await req.json();
-  if (!email || !['admin', 'contratante', 'contratada'].includes(papel)) {
+  if (!email || !['admin', 'contratante', 'contratada', 'cliente'].includes(papel)) {
     return NextResponse.json({ erro: 'Dados inválidos.' }, { status: 400 });
   }
 
