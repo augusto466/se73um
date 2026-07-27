@@ -11,10 +11,12 @@ const itemVazio = (): Item => ({ descricao: '', unidade: 'un', qtd: '' });
 const cotVazia = (): Cot => ({ fornecedor: '', cnpj: '', valor_total: '', prazo_entrega: '', condicoes_pagamento: '', frete: '', observacoes: '' });
 const num = (s: string) => Number(String(s).replace(/\./g, '').replace(',', '.')) || 0;
 
-export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eventos, papel, obraId }:
-  { pedidosIniciais: any[]; cotacoesIniciais: any[]; eventos: any[]; papel: string; obraId: number }) {
+export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eventos, papel, obraId, decisoesCliente = [] }:
+  { pedidosIniciais: any[]; cotacoesIniciais: any[]; eventos: any[]; papel: string; obraId: number; decisoesCliente?: any[] }) {
 
   const [pedidos, setPedidos] = useState(pedidosIniciais);
+// Decisao do cliente por pedido, para mostrar o selo na coluna de status.
+  const decisaoDe = (pid: number) => decisoesCliente.find(d => d.pedido_id === pid);
   const [cots, setCots] = useState(cotacoesIniciais);
   const [aberto, setAberto] = useState<number | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -196,6 +198,12 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
                 const pc = cotsDe(p.id);
                 const menor = pc.length ? Math.min(...pc.map(c => Number(c.valor_total))) : 0;
                 const [lbl, cls] = PEDIDO_STATUS[p.status] ?? ['?', 'st-pend'];
+const dc = decisaoDe(p.id);
+                  const DC_SELO: Record<string, [string, string]> = {
+                    aprovado: ['Cliente aprovou', 'st-exec'],
+                    recusado: ['Cliente recusou', 'st-risk'],
+                    ajuste: ['Cliente pediu ajuste', 'st-valid'],
+                  };
                 const vencedora = pc.find(c => c.id === p.cotacao_vencedora);
                 return (
                   <Frag key={p.id}>
@@ -205,7 +213,15 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
                       <td className="num">{fmtData(p.necessidade)}</td>
                       <td className="num">{pc.length}</td>
                       <td className="num">{menor ? fmtBRL(menor) : '—'}</td>
-                      <td><span className={`stamp ${cls}`}><span className="dot" />{lbl}</span></td>
+                      <td>
+                        <span className={`stamp ${cls}`}><span className="dot" />{lbl}</span>
+                        {dc && DC_SELO[dc.decisao] && (
+                          <span className={`stamp ${DC_SELO[dc.decisao][1]}`} style={{ marginLeft: 6 }}
+                            title={dc.comentario ? `Comentário: ${dc.comentario}` : undefined}>
+                            {DC_SELO[dc.decisao][0]}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                     {aberto === p.id && (
                       <tr><td colSpan={6} style={{ background: 'var(--surface-2)' }}>

@@ -9,12 +9,15 @@ export default async function Materiais() {
   const supabase = supabaseServer();
   const { data: pedidos } = await supabase.from('pedidos_materiais').select('*').eq('obra_id', obra.id).order('criado_em', { ascending: false });
   const ids = (pedidos ?? []).map(p => p.id);
-  const [perfil, { data: cotacoes }, { data: eventos }] = await Promise.all([
+  const [perfil, { data: cotacoes }, { data: eventos }, { data: decisoes }] = await Promise.all([
     perfilAtual(),
     ids.length
       ? supabase.from('cotacoes').select('*').in('pedido_id', ids).order('valor_total')
       : Promise.resolve({ data: [] as any[] }),
     supabase.from('eventos').select('id, etapa').eq('obra_id', obra.id).order('mes'),
+    ids.length
+      ? supabase.from('pedido_decisao_cliente').select('pedido_id, decisao, comentario, decidido_em').in('pedido_id', ids)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
   return (
     <MateriaisClient
@@ -22,6 +25,9 @@ export default async function Materiais() {
       cotacoesIniciais={cotacoes ?? []}
       eventos={eventos ?? []}
       papel={perfil?.papel ?? 'contratada'}
+      obraId={obra.id}
+      decisoesCliente={decisoes ?? []}
+    />
       obraId={obra.id}
     />
   );
