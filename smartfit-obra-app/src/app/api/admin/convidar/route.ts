@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const senha = gerarSenha();
   const { data, error } = await admin.auth.admin.createUser({
     email, password: senha, email_confirm: true,
-    user_metadata: { nome, papel, empresa },
+    user_metadata: { nome, papel, empresa, senha_provisoria: true },
   });
   if (error) return NextResponse.json({ erro: error.message }, { status: 400 });
 

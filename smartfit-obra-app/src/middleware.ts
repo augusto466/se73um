@@ -19,13 +19,24 @@ export async function middleware(req: NextRequest) {
   );
   const { data: { user } } = await supabase.auth.getUser();
   const path = req.nextUrl.pathname;
-  const publica = path === '/login' || path.startsWith('/api/cron') || path.startsWith('/pc');
+  const publica = path === '/login' || path.startsWith('/api/cron') || path.startsWith('/pc') || path === '/trocar-senha';
   if (!user && !publica) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
-if (user && path === '/login') {
+// Senha provisoria: enquanto nao trocar, bloqueia tudo e leva a /trocar-senha.
+  // Vem antes de qualquer outro redirect — trocar a senha e o primeiro passo.
+  if (user && path !== '/trocar-senha' && !publica) {
+    const { data: perfilSenha } = await supabase.from('profiles').select('senha_provisoria').eq('id', user.id).single();
+    if (perfilSenha?.senha_provisoria) {
+      const url = req.nextUrl.clone();
+      url.pathname = '/trocar-senha';
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (user && path === '/login') {
     const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
     const url = req.nextUrl.clone();
     url.pathname = perfil?.papel === 'cliente' ? '/visao-cliente' : '/meu-dia';
@@ -34,7 +45,7 @@ if (user && path === '/login') {
   // Guarda do cliente: ele so alcanca as rotas dele. Digitar /financeiro na URL
   // nao renderiza tela de gestor — a RLS ja esvazia os dados, mas a tela nem
   // chega a abrir. Lista-branca: o que nao esta aqui, redireciona.
-  if (user && !publica) {
+  Get-Content "C:\Users\AUGUSTO\Projetos\se73um\smartfit-obra-app\src\middleware.ts" | Select-String "senha_provisoria|profiles|papel === 'cliente'" -Context 2,2
     const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
     if (perfil?.papel === 'cliente') {
       const liberadas = ['/visao-cliente', '/pedidos-cliente', '/relatorios-cliente', '/pedido-compra'];
