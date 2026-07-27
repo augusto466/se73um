@@ -15,7 +15,7 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
   { pedidosIniciais: any[]; cotacoesIniciais: any[]; eventos: any[]; papel: string; obraId: number; decisoesCliente?: any[] }) {
 
   const [pedidos, setPedidos] = useState(pedidosIniciais);
-// Decisao do cliente por pedido, para mostrar o selo na coluna de status.
+  // Decisao do cliente por pedido, para mostrar o selo na coluna de status.
   const decisaoDe = (pid: number) => decisoesCliente.find(d => d.pedido_id === pid);
   const [cots, setCots] = useState(cotacoesIniciais);
   const [aberto, setAberto] = useState<number | null>(null);
@@ -37,6 +37,16 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
   async function audit(acao: string, id: number, detalhe: any) {
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from('auditoria').insert({ usuario: user?.id, acao, entidade: 'pedidos_materiais', entidade_id: String(id), detalhe, obra_id: obraId });
+  }
+
+  async function alternarFatDireto(p: any) {
+    // Faturamento direto marcado no pedido: o cliente passa a ver este pedido e
+    // a decidir sobre ele. Controle fino — dentro de um evento, um pedido pode
+    // ser faturamento direto e outro seu custo.
+    const novo = !p.faturamento_direto;
+    const { error } = await supabase.from('pedidos_materiais').update({ faturamento_direto: novo }).eq('id', p.id);
+    if (error) { alert(error.message); return; }
+    setPedidos(ps => ps.map(x => x.id === p.id ? { ...x, faturamento_direto: novo } : x));
   }
 
   async function enviarPedido() {
@@ -198,12 +208,12 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
                 const pc = cotsDe(p.id);
                 const menor = pc.length ? Math.min(...pc.map(c => Number(c.valor_total))) : 0;
                 const [lbl, cls] = PEDIDO_STATUS[p.status] ?? ['?', 'st-pend'];
-const dc = decisaoDe(p.id);
-                  const DC_SELO: Record<string, [string, string]> = {
-                    aprovado: ['Cliente aprovou', 'st-exec'],
-                    recusado: ['Cliente recusou', 'st-risk'],
-                    ajuste: ['Cliente pediu ajuste', 'st-valid'],
-                  };
+                const dc = decisaoDe(p.id);
+                const DC_SELO: Record<string, [string, string]> = {
+                  aprovado: ['Cliente aprovou', 'st-exec'],
+                  recusado: ['Cliente recusou', 'st-risk'],
+                  ajuste: ['Cliente pediu ajuste', 'st-valid'],
+                };
                 const vencedora = pc.find(c => c.id === p.cotacao_vencedora);
                 return (
                   <Frag key={p.id}>
@@ -215,6 +225,7 @@ const dc = decisaoDe(p.id);
                       <td className="num">{menor ? fmtBRL(menor) : '—'}</td>
                       <td>
                         <span className={`stamp ${cls}`}><span className="dot" />{lbl}</span>
+                        {p.faturamento_direto && <span className="stamp st-valid" style={{ marginLeft: 6 }}>Fat. direto</span>}
                         {dc && DC_SELO[dc.decisao] && (
                           <span className={`stamp ${DC_SELO[dc.decisao][1]}`} style={{ marginLeft: 6 }}
                             title={dc.comentario ? `Comentário: ${dc.comentario}` : undefined}>
@@ -225,6 +236,24 @@ const dc = decisaoDe(p.id);
                     </tr>
                     {aberto === p.id && (
                       <tr><td colSpan={6} style={{ background: 'var(--surface-2)' }}>
+                        {/* Faturamento direto: decide se o pedido vai ao cliente para decisao */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: 10, border: '1px solid var(--line)', borderRadius: 6 }}>
+                          <button className="mini" disabled={ocupado} onClick={() => alternarFatDireto(p)}
+                            style={p.faturamento_direto ? { color: 'var(--ok)', borderColor: 'var(--ok)' } : undefined}>
+                            {p.faturamento_direto ? '✓ Faturamento direto' : 'Marcar faturamento direto'}
+                          </button>
+                          <span className="hint" style={{ fontSize: 11.5 }}>
+                            {p.faturamento_direto
+                              ? 'O cliente paga direto ao fornecedor, vê este pedido e decide sobre ele.'
+                              : 'Pedido de custo seu. Marque se o cliente paga direto ao fornecedor.'}
+                          </span>
+                          {p.faturamento_direto && p.cotacao_vencedora && (
+                            <a className="mini" href={`/pedido-compra/${p.id}`} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto', textDecoration: 'none' }}>
+                              Ver pedido de compra →
+                            </a>
+                          )}
+                        </div>
+
                         {p.justificativa && <p style={{ fontSize: 13, marginBottom: 10 }}><b>Justificativa:</b> {p.justificativa}</p>}
 
                         <div className="fg"><label>Itens do pedido</label></div>
