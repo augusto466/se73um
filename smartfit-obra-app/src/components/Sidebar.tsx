@@ -3,13 +3,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
-import { Logo } from './Marca';
+import { Logo, SimboloMini } from './Marca';
 
 type Item = { href: string; label: string; ic: string; badge?: number };
 type Grupo = { titulo: string; itens: Item[] };
 
-export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
-  { papel: string; perfil: any; obras: any[]; obraAtiva: number | null; badges: Record<string, number> }) {
+export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoEmpresa = null }:
+  { papel: string; perfil: any; obras: any[]; obraAtiva: number | null; badges: Record<string, number>; logoEmpresa?: string | null }) {
   const path = usePathname();
   const [aberta, setAberta] = useState(false);
   const gestor = papel === 'admin' || papel === 'contratante';
@@ -78,7 +78,19 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges }:
         style={{ position: 'fixed', top: 12, left: 12, zIndex: 60 }} aria-label="Menu">☰</button>
 
       <aside className={`side ${aberta ? 'open' : ''}`}>
-        <div className="side-brand"><Logo size={28} /></div>
+        <div className="side-brand">
+          {logoEmpresa ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+              <img src={logoEmpresa} alt="Logo da empresa" style={{ maxHeight: 40, maxWidth: 160, objectFit: 'contain', alignSelf: 'flex-start' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, opacity: 0.5 }}>
+                <SimboloMini size={11} />
+                <span style={{ fontSize: 9.5, letterSpacing: '0.04em', textTransform: 'uppercase' }}>powered by Se<em style={{ fontStyle: 'normal', color: 'var(--brand)' }}>73</em>um</span>
+              </div>
+            </div>
+          ) : (
+            <Logo size={28} />
+          )}
+        </div>
 
         {obras.length > 0 && (
           <div className="side-obra">

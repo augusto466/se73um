@@ -12,6 +12,16 @@ export default async function PainelLayout({ children }: { children: React.React
   const gestor = papel === 'admin' || papel === 'contratante';
 
   const [obras, ativa] = await Promise.all([listarObras(), obraAtiva()]);
+// Logo da empresa para o cabecalho da sidebar. Fica no Storage privado, entao
+  // gera URL assinada. Se nao houver, a sidebar cai na marca Se73um.
+  let logoEmpresa: string | null = null;
+  if (perfil?.empresa_id) {
+    const { data: emp } = await supabase.from('empresas').select('logo_path').eq('id', perfil.empresa_id).maybeSingle();
+    if (emp?.logo_path) {
+      const { data: signed } = await supabase.storage.from('arquivos').createSignedUrl(emp.logo_path, 60 * 60);
+      logoEmpresa = signed?.signedUrl ?? null;
+    }
+  }
   const hoje = new Date().toISOString().slice(0, 10);
   const em7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
@@ -36,7 +46,7 @@ export default async function PainelLayout({ children }: { children: React.React
 
   return (
     <div className="app">
-      <Sidebar papel={papel} perfil={perfil} obras={obras} obraAtiva={ativa?.id ?? null} badges={badges} />
+     <Sidebar papel={papel} perfil={perfil} obras={obras} obraAtiva={ativa?.id ?? null} badges={badges} logoEmpresa={logoEmpresa} />
       <div className="main">
         <Topbar obra={ativa} />
         <div className="content">{children}</div>
