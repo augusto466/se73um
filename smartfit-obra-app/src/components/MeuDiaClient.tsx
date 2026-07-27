@@ -53,6 +53,31 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens
     setLista(l => l.filter(x => !(x.tipo === 'rotina' && x.id === item.id)));
   }
 
+  async function excluirTarefa(item: any) {
+    if (!confirm(`Excluir a tarefa "${item.titulo}"?\n\nIsto apaga de vez. Não dá para desfazer.`)) return;
+    setOcupado(true);
+    const { error } = await supabase.from('tarefas').delete().eq('id', Number(item.id));
+    setOcupado(false);
+    if (error) { alert(error.message); return; }
+    setLista(l => l.filter(x => !(x.tipo === 'tarefa' && x.id === item.id)));
+  }
+
+  async function excluirRotina(item: any) {
+    // A ocorrência some, mas a rotina-mãe segue gerando: sem esse aviso, o
+    // usuário acha que apagou de vez e vê o item voltar amanhã.
+    const ok = confirm(
+      `Excluir esta ocorrência de "${item.titulo}"?\n\n` +
+      `Atenção: isto remove só a ocorrência de hoje. Como a rotina continua ativa, ` +
+      `ela vai gerar a próxima normalmente. Para parar de vez, desative a rotina na aba Rotinas.`
+    );
+    if (!ok) return;
+    setOcupado(true);
+    const { error } = await supabase.from('rotina_ocorrencias').delete().eq('id', Number(item.id));
+    setOcupado(false);
+    if (error) { alert(error.message); return; }
+    setLista(l => l.filter(x => !(x.tipo === 'rotina' && x.id === item.id)));
+  }
+
   const Bloco = ({ titulo, itens, destaque, colapsavel, aberto, onToggle }:
     { titulo: string; itens: any[]; destaque?: string; colapsavel?: boolean; aberto?: boolean; onToggle?: () => void }) => {
     if (!itens.length) return null;
@@ -79,10 +104,14 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens
                 </div>
                 {i.prioridade === 'alta' && <span className="stamp st-risk" style={{ fontSize: 9.5 }}>ALTA</span>}
                 {i.tipo === 'rotina'
-                  ? <button className="mini" disabled={ocupado} onClick={() => concluirRotina(i)}>✓ concluir</button>
+                  ? <>
+                      <button className="mini" disabled={ocupado} onClick={() => concluirRotina(i)}>✓ concluir</button>
+                      <button className="mini" disabled={ocupado} onClick={() => excluirRotina(i)} title="excluir ocorrência">✕</button>
+                    </>
                   : i.tipo === 'tarefa'
                   ? <>
                       <button className="mini" disabled={ocupado} onClick={() => concluirTarefa(i)}>✓ concluir</button>
+                      <button className="mini" disabled={ocupado} onClick={() => excluirTarefa(i)} title="excluir tarefa">✕</button>
                       <Link href={info.href} className="mini" style={{ textDecoration: 'none' }}>abrir →</Link>
                     </>
                   : <Link href={info.href} className="mini" style={{ textDecoration: 'none' }}>abrir →</Link>}
