@@ -37,7 +37,7 @@ if (user && path === '/login') {
   if (user && !publica) {
     const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
     if (perfil?.papel === 'cliente') {
-      const liberadas = ['/visao-cliente', '/pedidos-cliente', '/relatorios-cliente'];
+      const liberadas = ['/visao-cliente', '/pedidos-cliente', '/relatorios-cliente', '/pedido-compra'];
       const apiLiberada = path.startsWith('/api/documentos/download-cliente') || path.startsWith('/api/obra-ativa') || path.startsWith('/api/auth');
       const ehRota = liberadas.some(r => path === r || path.startsWith(r + '/'));
       if (!ehRota && !apiLiberada && !path.startsWith('/_next')) {
