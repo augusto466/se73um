@@ -8,6 +8,8 @@ export default function EquipeClient({ perfisIniciais, obras, vinculosIniciais }
   const [form, setForm] = useState({ nome: '', email: '', papel: 'contratada', empresa: '' });
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [ed, setEd] = useState({ nome: '', papel: '', empresa: '' });
 
   const temVinculo = (obraId: number, usuarioId: string) =>
     vinculos.some(v => v.obra_id === obraId && v.usuario_id === usuarioId);
@@ -36,6 +38,45 @@ export default function EquipeClient({ perfisIniciais, obras, vinculosIniciais }
       ? [...vs, { obra_id: obraId, usuario_id: usuarioId }]
       : vs.filter(v => !(v.obra_id === obraId && v.usuario_id === usuarioId)));
   }
+
+  function abrirEdicao(p: any) {
+    setEditando(p.id);
+    setEd({ nome: p.nome ?? '', papel: p.papel ?? 'contratada', empresa: p.empresa ?? '' });
+  }
+
+  async function salvarEdicao(p: any) {
+    setOcupado(true);
+    const r = await fetch('/api/admin/usuario', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'editar', usuarioId: p.id, nome: ed.nome, papel: ed.papel, empresa: ed.empresa }),
+    });
+    const j = await r.json();
+    setOcupado(false);
+    if (!r.ok) { alert(j.erro ?? 'Falha ao salvar.'); return; }
+    setPerfis(ps => ps.map(x => x.id === p.id ? { ...x, nome: ed.nome, papel: ed.papel, empresa: ed.empresa } : x));
+    setEditando(null);
+  }
+
+  async function alternarAtivo(p: any) {
+    const desativar = p.ativo !== false;
+    if (desativar && !confirm(`Desativar ${p.nome ?? p.email}? Ele perde o acesso, mas o registro e o histórico permanecem.`)) return;
+    setOcupado(true);
+    const r = await fetch('/api/admin/usuario', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: desativar ? 'desativar' : 'reativar', usuarioId: p.id }),
+    });
+    const j = await r.json();
+    setOcupado(false);
+    if (!r.ok) { alert(j.erro ?? 'Falha ao atualizar.'); return; }
+    setPerfis(ps => ps.map(x => x.id === p.id ? { ...x, ativo: !desativar } : x));
+  }
+
+  const PAPEIS = [
+    ['cliente', 'Cliente'],
+    ['contratante', 'Contratante'],
+    ['contratada', 'Contratada'],
+    ['admin', 'Administrador'],
+  ];
 
   return (
     <>
@@ -68,27 +109,59 @@ export default function EquipeClient({ perfisIniciais, obras, vinculosIniciais }
           <table>
             <thead>
               <tr>
-                <th>Usuário</th><th>Empresa</th><th>Papel</th>
+                <th>Usuário</th><th>Empresa</th><th>Papel</th><th>Ações</th>
                 {obras.map(o => <th key={o.id} className="num" title={o.nome}>{o.codigo}</th>)}
               </tr>
             </thead>
             <tbody>
-              {perfis.map(p => (
-                <tr key={p.id}>
-                  <td><b>{p.nome ?? '—'}</b><div className="hint" style={{ fontFamily: 'var(--mono)', fontSize: 11.5 }}>{p.email}</div></td>
-                  <td>{p.empresa ?? '—'}</td>
-                  <td><span className="role-badge">{p.papel}</span></td>
-                  {obras.map(o => (
-                    <td key={o.id} style={{ textAlign: 'center' }}>
-                      {p.papel === 'admin'
-                        ? <span className="hint" title="Administradores acessam todas as obras">todas</span>
-                        : <input type="checkbox" checked={temVinculo(o.id, p.id)}
-                            onChange={e => alternarVinculo(o.id, p.id, e.target.checked)}
-                            style={{ accentColor: 'var(--ok)', width: 16, height: 16 }} />}
+              {perfis.map(p => {
+                const inativo = p.ativo === false;
+                const emEdicao = editando === p.id;
+                return (
+                  <tr key={p.id} style={inativo ? { opacity: 0.55 } : undefined}>
+                    <td>
+                      {emEdicao
+                        ? <input value={ed.nome} onChange={e => setEd({ ...ed, nome: e.target.value })} placeholder="Nome" style={{ width: '100%' }} />
+                        : <><b>{p.nome ?? '—'}</b>{inativo && <span className="stamp st-risk" style={{ marginLeft: 6 }}>Inativo</span>}</>}
+                      <div className="hint" style={{ fontFamily: 'var(--mono)', fontSize: 11.5 }}>{p.email}</div>
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    <td>
+                      {emEdicao
+                        ? <input value={ed.empresa} onChange={e => setEd({ ...ed, empresa: e.target.value })} placeholder="Empresa" style={{ width: '100%' }} />
+                        : (p.empresa ?? '—')}
+                    </td>
+                    <td>
+                      {emEdicao
+                        ? <select value={ed.papel} onChange={e => setEd({ ...ed, papel: e.target.value })}>
+                            {PAPEIS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                          </select>
+                        : <span className="role-badge">{p.papel}</span>}
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {emEdicao
+                        ? <>
+                            <button className="mini" disabled={ocupado} onClick={() => salvarEdicao(p)}>salvar</button>{' '}
+                            <button className="mini" onClick={() => setEditando(null)}>cancelar</button>
+                          </>
+                        : <>
+                            <button className="mini" onClick={() => abrirEdicao(p)}>editar</button>{' '}
+                            <button className={`mini ${inativo ? '' : 'danger'}`} disabled={ocupado} onClick={() => alternarAtivo(p)}>
+                              {inativo ? 'reativar' : 'desativar'}
+                            </button>
+                          </>}
+                    </td>
+                    {obras.map(o => (
+                      <td key={o.id} style={{ textAlign: 'center' }}>
+                        {p.papel === 'admin'
+                          ? <span className="hint" title="Administradores acessam todas as obras">todas</span>
+                          : <input type="checkbox" checked={temVinculo(o.id, p.id)}
+                              onChange={e => alternarVinculo(o.id, p.id, e.target.checked)}
+                              style={{ accentColor: 'var(--ok)', width: 16, height: 16 }} />}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

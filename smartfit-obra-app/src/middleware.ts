@@ -49,7 +49,18 @@ export async function middleware(req: NextRequest) {
   // nao renderiza tela de gestor — a RLS ja esvazia os dados, mas a tela nem
   // chega a abrir. Lista-branca: o que nao esta aqui, redireciona.
   if (user && !publica) {
-       const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
+    const { data: perfil } = await supabase.from('profiles').select('papel, ativo').eq('id', user.id).single();
+
+    // Usuario desativado: desloga e manda ao login. Bloqueia acesso sem apagar
+    // o registro.
+    if (perfil && perfil.ativo === false) {
+      await supabase.auth.signOut();
+      const url = req.nextUrl.clone();
+      url.pathname = '/login';
+      url.searchParams.set('inativo', '1');
+      return NextResponse.redirect(url);
+    }
+
     if (perfil?.papel === 'cliente') {
       const liberadas = ['/visao-cliente', '/pedidos-cliente', '/relatorios-cliente', '/pedido-compra'];
       const apiLiberada = path.startsWith('/api/documentos/download-cliente') || path.startsWith('/api/obra-ativa') || path.startsWith('/api/auth');
