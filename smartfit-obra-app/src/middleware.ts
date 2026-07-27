@@ -37,8 +37,7 @@ export async function middleware(req: NextRequest) {
   }
 
   if (user && path === '/login') {
-    const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
-    const url = req.nextUrl.clone();
+        const url = req.nextUrl.clone();
     url.pathname = perfil?.papel === 'cliente' ? '/visao-cliente' : '/meu-dia';
     return NextResponse.redirect(url);
   }
@@ -49,8 +48,7 @@ export async function middleware(req: NextRequest) {
   // nao renderiza tela de gestor — a RLS ja esvazia os dados, mas a tela nem
   // chega a abrir. Lista-branca: o que nao esta aqui, redireciona.
   if (user && !publica) {
-    const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
-    const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
+       const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
     if (perfil?.papel === 'cliente') {
       const liberadas = ['/visao-cliente', '/pedidos-cliente', '/relatorios-cliente', '/pedido-compra'];
       const apiLiberada = path.startsWith('/api/documentos/download-cliente') || path.startsWith('/api/obra-ativa') || path.startsWith('/api/auth');
