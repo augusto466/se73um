@@ -105,8 +105,8 @@ export default function EventosClient({ eventosIniciais, papel, obra }: { evento
                             </tbody>
                           </table>
                           <div style={{marginTop:10,display:'flex',gap:6,flexWrap:'wrap'}}>
-                            {!podeValidar && ev.status === 'pendente' && <button className="mini" disabled={ocupado} onClick={() => mudarStatus(ev, 'execucao')}>▶ Iniciar execução</button>}
-                            {!podeValidar && ev.status === 'execucao' && <button className="mini" disabled={ocupado} onClick={() => mudarStatus(ev, 'validacao')}>⇧ Submeter para validação (notifica fiscalização)</button>}
+                            {(!podeValidar || papel === 'admin') && ev.status === 'pendente' && <button className="mini" disabled={ocupado} onClick={() => mudarStatus(ev, 'execucao')}>▶ Iniciar execução</button>}
+                            {(!podeValidar || papel === 'admin') && ev.status === 'execucao' && <button className="mini" disabled={ocupado} onClick={() => mudarStatus(ev, 'validacao')}>⇧ Submeter para validação (notifica fiscalização)</button>}
                             {podeValidar && ev.status === 'validacao' && <>
                               <button className="mini" disabled={ocupado} onClick={() => mudarStatus(ev, 'aprovado')}>✓ Aprovar medição (notifica todos)</button>
                               <button className="mini danger" disabled={ocupado} onClick={() => aprovarComGlosa(ev)}>✕ Aprovar com glosa</button>
