@@ -37,7 +37,8 @@ export async function middleware(req: NextRequest) {
   }
 
   if (user && path === '/login') {
-        const url = req.nextUrl.clone();
+    const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user.id).single();
+    const url = req.nextUrl.clone();
     url.pathname = perfil?.papel === 'cliente' ? '/visao-cliente' : '/meu-dia';
     return NextResponse.redirect(url);
   }
