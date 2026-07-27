@@ -13,16 +13,29 @@ const STATUS_ROTULO: Record<string, { txt: string; cor: string }> = {
   pendente:  { txt: 'A iniciar',       cor: 'st-pend' },
 };
 
-// Kanban do cliente: 3 colunas. As colunas internas 0/1/2/3 dobram em tres —
-// revisao (2) entra em "em andamento", que e o que faz sentido para quem so
-// acompanha.
+// Status de pedido, do ponto de vista do cliente. O que e ruido interno
+// (rascunho, em cotacao) vira "em andamento"; o que importa a ele e se ja foi
+// comprado/entregue.
+const PEDIDO_ROTULO: Record<string, { txt: string; cor: string }> = {
+  aprovado:  { txt: 'Aprovado',    cor: 'st-exec' },
+  comprado:  { txt: 'Comprado',    cor: 'st-exec' },
+  enviado:   { txt: 'Em cotação',  cor: 'st-valid' },
+  recusado:  { txt: 'Recusado',    cor: 'st-pend' },
+  rascunho:  { txt: 'Em preparo',  cor: 'st-pend' },
+};
+
 const COLUNAS_CLIENTE = [
   { titulo: 'A fazer', filtro: (c: number) => c === 0 },
   { titulo: 'Em andamento', filtro: (c: number) => c === 1 || c === 2 },
   { titulo: 'Concluído', filtro: (c: number) => c === 3 },
 ];
 
-export default function VisaoClienteView({ obra, eventos, tarefas = [] }: { obra: any; eventos: any[]; tarefas?: any[] }) {
+// Rotulo do evento para o cliente: a descricao diz mais que a etapa, que se
+// repete (quatro "Projetos Executivos", varias "Estrutura Metalica").
+const rotuloEvento = (e: any) => e.descricao || e.etapa;
+
+export default function VisaoClienteView({ obra, eventos, tarefas = [], pedidos = [] }:
+  { obra: any; eventos: any[]; tarefas?: any[]; pedidos?: any[] }) {
   if (!obra) {
     return (
       <div className="panel"><div className="bd">
@@ -96,7 +109,7 @@ export default function VisaoClienteView({ obra, eventos, tarefas = [] }: { obra
                 <div key={`m-${e.id}-${k}`} className="dia-item">
                   <span className={`stamp ${st.cor}`} style={{ minWidth: 92, justifyContent: 'center' }}>{st.txt}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{e.etapa}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{rotuloEvento(e)}</div>
                     <div className="hint">{e.fim ? `previsto para ${fmtData(e.fim)}` : ''}</div>
                   </div>
                 </div>
@@ -112,6 +125,47 @@ export default function VisaoClienteView({ obra, eventos, tarefas = [] }: { obra
           <GanttCliente eventos={eventos} />
         </div>
       </div>
+
+      {pedidos.length > 0 && (
+        <div className="panel">
+          <div className="hd">
+            <h3>Pedidos de faturamento direto</h3>
+            <span className="hint">materiais pagos diretamente ao fornecedor</span>
+          </div>
+          <div className="bd" style={{ padding: 0 }}>
+            {pedidos.map((p, k) => {
+              const st = PEDIDO_ROTULO[p.status] ?? { txt: p.status, cor: 'st-pend' };
+              const itens = Array.isArray(p.itens) ? p.itens : [];
+              return (
+                <div key={`p-${p.id}-${k}`} className="dia-item" style={{ alignItems: 'flex-start' }}>
+                  <span className={`stamp ${st.cor}`} style={{ minWidth: 92, justifyContent: 'center', marginTop: 2 }}>{st.txt}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{p.titulo}</div>
+                    <div className="hint">
+                      {p.etapa}
+                      {p.fornecedor ? ` · ${p.fornecedor}` : ''}
+                      {p.necessidade ? ` · necessário até ${fmtData(p.necessidade)}` : ''}
+                    </div>
+                    {itens.length > 0 && (
+                      <div className="hint" style={{ fontSize: 11.5, marginTop: 4 }}>
+                        {itens.slice(0, 4).map((it: any, i: number) =>
+                          `${it.qtd ?? ''} ${it.unidade ?? ''} · ${it.descricao ?? ''}`).join('  |  ')}
+                        {itens.length > 4 ? `  (+${itens.length - 4})` : ''}
+                      </div>
+                    )}
+                  </div>
+                  {p.valor_faturado != null && (
+                    <div style={{ textAlign: 'right', minWidth: 110 }}>
+                      <b style={{ fontSize: 13 }}>{fmt(p.valor_faturado)}</b>
+                      <div className="hint" style={{ fontSize: 10.5 }}>faturamento direto</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {tarefas.length > 0 && (
         <div className="panel">

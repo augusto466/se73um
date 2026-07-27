@@ -78,15 +78,15 @@ export default function GanttCliente({ eventos }: { eventos: any[] }) {
             return (
               <div key={`${e.id}-${k}`} style={{ display: 'flex', alignItems: 'center', height: 30, borderBottom: '1px solid var(--line)' }}>
                 <div style={{ width: 200, flexShrink: 0, fontSize: 11.5, paddingRight: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                  title={e.etapa}>
+                  title={e.descricao || e.etapa}>
                   {e.critico && <span style={{ color: 'var(--brand)', marginRight: 3 }}>▲</span>}
-                  {e.etapa}
+                  {e.descricao || e.etapa}
                 </div>
                 <div style={{ flex: 1, position: 'relative', height: '100%' }}>
                   <div style={{
                     position: 'absolute', left: `${left}%`, width: `${width}%`,
                     top: 7, height: 16, background: cor, borderRadius: 4, opacity: 0.85,
-                  }} title={`${e.etapa}: ${e.ini} a ${e.fim}`} />
+                  }} title={`${e.descricao || e.etapa}: ${e.ini} a ${e.fim}`} />
                 </div>
               </div>
             );
