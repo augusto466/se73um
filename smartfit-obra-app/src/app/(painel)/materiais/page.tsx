@@ -28,7 +28,6 @@ export default async function Materiais() {
       obraId={obra.id}
       decisoesCliente={decisoes ?? []}
     />
-      obraId={obra.id}
-    />
+      
   );
 }
