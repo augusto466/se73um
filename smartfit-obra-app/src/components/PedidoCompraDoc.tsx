@@ -11,21 +11,61 @@ export default function PedidoCompraDoc({ pedido, obra, cotacao, empresa, evento
   const numero = `PC-${String(pedido.id).padStart(4, '0')}`;
   const hoje = new Date().toLocaleDateString('pt-BR');
 
-  // Nome de exibicao da empresa emissora (cabecalho). Fallback em cadeia.
   const emissorNome = empresa?.nome_fantasia || empresa?.razao_social || 'Modo Modular';
+
+  // Link publico do pedido, para o fornecedor abrir sem login.
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const linkPublico = pedido.pc_token ? `${origin}/pc/${pedido.id}?token=${pedido.pc_token}` : '';
+
+  // mailto pre-preenchido: sai do e-mail do cliente (Invest), com o link do
+  // pedido no corpo. O fornecedor abre o link e ve/imprime o pedido.
+  function enviarAoFornecedor() {
+    const para = cotacao?.email ?? '';
+    const assunto = `Pedido de Compra ${numero} — ${obra?.fat_razao_social ?? obra?.cliente ?? ''}`;
+    const corpo = [
+      `Prezados,`,
+      ``,
+      `Segue nosso pedido de compra ${numero}, referente ao material abaixo, para a obra ${obra?.codigo ?? ''}.`,
+      ``,
+      `Fornecedor: ${cotacao?.fornecedor ?? ''}`,
+      `Valor total: ${fmt(cotacao?.valor_total)}`,
+      obra?.entrega_endereco ? `Entrega: ${obra.entrega_endereco}` : '',
+      ``,
+      `O pedido completo, com itens e dados de faturamento, pode ser acessado neste link:`,
+      linkPublico,
+      ``,
+      `A nota fiscal deve ser emitida em nome de ${obra?.fat_razao_social ?? obra?.cliente ?? ''}, CNPJ ${obra?.fat_cnpj ?? ''}.`,
+      ``,
+      `Atenciosamente,`,
+      obra?.fat_razao_social ?? obra?.cliente ?? '',
+    ].filter(l => l !== undefined).join('\n');
+
+    const url = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+    window.location.href = url;
+  }
+
+  const semEmailFornecedor = !cotacao?.email;
 
   return (
     <>
       {/* Barra de acoes — some na impressao */}
       <div className="pc-actions" style={{
-        position: 'sticky', top: 0, display: 'flex', gap: 8, justifyContent: 'flex-end',
+        position: 'sticky', top: 0, display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center',
         padding: '12px 16px', background: 'var(--surface-1, #111)', borderBottom: '1px solid #333', zIndex: 10,
       }}>
+        {semEmailFornecedor && (
+          <span style={{ color: '#c88', fontSize: 12, marginRight: 'auto' }}>
+            O fornecedor não tem e-mail cadastrado — adicione na cotação para habilitar o envio.
+          </span>
+        )}
         <button className="btn" onClick={() => window.print()}>Imprimir / Salvar PDF</button>
+        <button className="btn" onClick={enviarAoFornecedor} disabled={semEmailFornecedor}
+          style={{ background: cor, borderColor: cor }}>
+          Enviar ao fornecedor
+        </button>
       </div>
 
       <div className="pc-doc">
-        {/* Cabecalho */}
         <header className="pc-head">
           <div className="pc-emissor">
             {logoUrl
@@ -45,7 +85,6 @@ export default function PedidoCompraDoc({ pedido, obra, cotacao, empresa, evento
           </div>
         </header>
 
-        {/* Fornecedor */}
         <section className="pc-bloco">
           <h4 style={{ color: cor }}>Fornecedor</h4>
           <div className="pc-grid2">
@@ -56,7 +95,6 @@ export default function PedidoCompraDoc({ pedido, obra, cotacao, empresa, evento
           </div>
         </section>
 
-        {/* Faturar para / Entregar em */}
         <section className="pc-bloco pc-2col">
           <div>
             <h4 style={{ color: cor }}>Faturar para</h4>
@@ -80,7 +118,6 @@ export default function PedidoCompraDoc({ pedido, obra, cotacao, empresa, evento
           </div>
         </section>
 
-        {/* Itens */}
         <section className="pc-bloco">
           <h4 style={{ color: cor }}>Itens</h4>
           <table className="pc-tabela">
@@ -101,7 +138,6 @@ export default function PedidoCompraDoc({ pedido, obra, cotacao, empresa, evento
           </table>
         </section>
 
-        {/* Valor e condicoes */}
         <section className="pc-bloco pc-total">
           <div className="pc-cond">
             {cotacao?.condicoes_pagamento && <div><span>Condições de pagamento:</span> {cotacao.condicoes_pagamento}</div>}
@@ -151,7 +187,7 @@ export default function PedidoCompraDoc({ pedido, obra, cotacao, empresa, evento
 
         @media print {
           .pc-actions { display: none !important; }
-          .pc-doc { padding: 0; max-width: none; }
+          .pc-doc { padding: 0; max-width: none; box-shadow: none; }
           @page { margin: 1.5cm; }
         }
       `}</style>

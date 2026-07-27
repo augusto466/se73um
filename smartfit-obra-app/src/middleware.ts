@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
   );
   const { data: { user } } = await supabase.auth.getUser();
   const path = req.nextUrl.pathname;
-  const publica = path === '/login' || path.startsWith('/api/cron');
+  const publica = path === '/login' || path.startsWith('/api/cron') || path.startsWith('/pc');
   if (!user && !publica) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
