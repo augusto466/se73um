@@ -43,6 +43,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
       ...(gestor ? [{ href: '/replanejamento', label: 'Replanejamento', ic: '◫' }] : []),
       { href: '/medicoes', label: 'Faturamento', ic: '▩' },
       ...(gestor ? [{ href: '/financeiro', label: 'Financeiro', ic: '▣', badge: badges.financeiro }] : []),
+      ...(gestor ? [{ href: '/orcamento', label: 'Orçamento', ic: '▨' }] : []),
     ]},
     { titulo: 'Operação', itens: [
       { href: '/materiais', label: 'Materiais', ic: '◲', badge: badges.pedidos },
