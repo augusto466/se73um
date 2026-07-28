@@ -9,7 +9,7 @@ export default function EquipeClient({ perfisIniciais, obras, vinculosIniciais }
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [editando, setEditando] = useState<string | null>(null);
-  const [ed, setEd] = useState({ nome: '', papel: '', empresa: '' });
+  const [ed, setEd] = useState({ nome: '', papel: '', empresa: '', funcao: '' });
 
   const temVinculo = (obraId: number, usuarioId: string) =>
     vinculos.some(v => v.obra_id === obraId && v.usuario_id === usuarioId);
@@ -41,19 +41,19 @@ export default function EquipeClient({ perfisIniciais, obras, vinculosIniciais }
 
   function abrirEdicao(p: any) {
     setEditando(p.id);
-    setEd({ nome: p.nome ?? '', papel: p.papel ?? 'contratada', empresa: p.empresa ?? '' });
+    setEd({ nome: p.nome ?? '', papel: p.papel ?? 'contratada', empresa: p.empresa ?? '', funcao: p.funcao ?? '' });
   }
 
   async function salvarEdicao(p: any) {
     setOcupado(true);
     const r = await fetch('/api/admin/usuario', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'editar', usuarioId: p.id, nome: ed.nome, papel: ed.papel, empresa: ed.empresa }),
+      body: JSON.stringify({ acao: 'editar', usuarioId: p.id, nome: ed.nome, papel: ed.papel, empresa: ed.empresa, funcao: ed.funcao || null }),
     });
     const j = await r.json();
     setOcupado(false);
     if (!r.ok) { alert(j.erro ?? 'Falha ao salvar.'); return; }
-    setPerfis(ps => ps.map(x => x.id === p.id ? { ...x, nome: ed.nome, papel: ed.papel, empresa: ed.empresa } : x));
+    setPerfis(ps => ps.map(x => x.id === p.id ? { ...x, nome: ed.nome, papel: ed.papel, empresa: ed.empresa, funcao: ed.funcao || null } : x));
     setEditando(null);
   }
 
@@ -77,6 +77,14 @@ export default function EquipeClient({ perfisIniciais, obras, vinculosIniciais }
     ['contratada', 'Contratada'],
     ['admin', 'Administrador'],
   ];
+
+  const FUNCOES = [
+    ['', 'Padrão (pelo papel)'],
+    ['campo', 'Campo'],
+    ['escritorio', 'Escritório'],
+    ['gestao', 'Gestão'],
+  ];
+  const funcaoLabel = (f: string | null) => FUNCOES.find(([v]) => v === (f ?? ''))?.[1] ?? f;
 
   return (
     <>
@@ -109,7 +117,7 @@ export default function EquipeClient({ perfisIniciais, obras, vinculosIniciais }
           <table>
             <thead>
               <tr>
-                <th>Usuário</th><th>Empresa</th><th>Papel</th><th>Ações</th>
+                <th>Usuário</th><th>Empresa</th><th>Papel</th><th>Função</th><th>Ações</th>
                 {obras.map(o => <th key={o.id} className="num" title={o.nome}>{o.codigo}</th>)}
               </tr>
             </thead>
@@ -136,6 +144,13 @@ export default function EquipeClient({ perfisIniciais, obras, vinculosIniciais }
                             {PAPEIS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                           </select>
                         : <span className="role-badge">{p.papel}</span>}
+                    </td>
+                    <td>
+                      {emEdicao
+                        ? <select value={ed.funcao} onChange={e => setEd({ ...ed, funcao: e.target.value })}>
+                            {FUNCOES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                          </select>
+                        : <span className="hint">{funcaoLabel(p.funcao)}</span>}
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {emEdicao

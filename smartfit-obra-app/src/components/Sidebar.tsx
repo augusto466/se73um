@@ -12,6 +12,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
   { papel: string; perfil: any; obras: any[]; obraAtiva: number | null; badges: Record<string, number>; logoEmpresa?: string | null }) {
   const path = usePathname();
   const [aberta, setAberta] = useState(false);
+  const [maisAberto, setMaisAberto] = useState(false);
   const gestor = papel === 'admin' || papel === 'contratante';
 
   // Cliente vê lista-branca: só o que for liberado explicitamente aqui, e nada
@@ -65,6 +66,21 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
     ]}] : []),
   ];
 
+  // 'papel' já decidiu o que pode aparecer (grupos acima). 'funcao' só decide
+  // o que fica em foco por padrão — o resto do que o papel permite vai para
+  // "Mais". Nada some de vez, e funcao nula é tratada como 'gestao'.
+  const focoPorFuncao: Record<string, string[]> = {
+    campo: ['/meu-dia', '/cronograma', '/materiais', '/diario', '/tarefas', '/qualidade', '/colaboradores', '/rotinas'],
+    escritorio: ['/meu-dia', '/financeiro', '/medicoes', '/orcamento', '/materiais', '/documentos', '/rotinas'],
+    gestao: ['/meu-dia', '/painel-ceo', '/obras', '/cronograma', '/financeiro', '/medicoes', '/orcamento', '/materiais'],
+  };
+  const foco = new Set(focoPorFuncao[perfil?.funcao ?? 'gestao'] ?? focoPorFuncao.gestao);
+
+  const gruposFoco: Grupo[] = cliente ? gruposCliente : grupos
+    .map(g => ({ titulo: g.titulo, itens: g.itens.filter(i => foco.has(i.href)) }))
+    .filter(g => g.itens.length > 0);
+  const outros: Item[] = cliente ? [] : grupos.flatMap(g => g.itens).filter(i => !foco.has(i.href));
+
   async function trocarObra(id: string) {
     if (id === '_todas') { window.location.href = '/obras'; return; }
     await fetch('/api/obra-ativa', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ obraId: Number(id) }) });
@@ -104,7 +120,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
         )}
 
         <nav className="side-nav">
-          {grupos.map(g => (
+          {gruposFoco.map(g => (
             <div key={g.titulo}>
               <div className="nav-grp">{g.titulo}</div>
               {g.itens.map(i => (
@@ -116,6 +132,24 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
               ))}
             </div>
           ))}
+
+          {outros.length > 0 && (
+            <div>
+              <button type="button" className="nav-i" onClick={() => setMaisAberto(a => !a)}
+                style={{ width: '100%', background: 'none', border: 'none', textAlign: 'left', font: 'inherit', cursor: 'pointer' }}>
+                <span className="ic">⋯</span>
+                <span>Mais</span>
+                <span style={{ marginLeft: 'auto', opacity: .6, fontSize: 10 }}>{maisAberto ? '▲' : '▼'}</span>
+              </button>
+              {maisAberto && outros.map(i => (
+                <Link key={i.href} href={i.href} className={`nav-i ${path.startsWith(i.href) ? 'on' : ''}`} onClick={() => setAberta(false)}>
+                  <span className="ic">{i.ic}</span>
+                  <span>{i.label}</span>
+                  {!!i.badge && <span className="bd">{i.badge}</span>}
+                </Link>
+              ))}
+            </div>
+          )}
         </nav>
 
         <div className="side-user">

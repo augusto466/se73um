@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const { data: euPerfil } = await supa.from('profiles').select('papel').eq('id', user.id).single();
   if (euPerfil?.papel !== 'admin') return NextResponse.json({ erro: 'Apenas administradores.' }, { status: 403 });
 
-  const { acao, usuarioId, nome, papel, empresa } = await req.json();
+  const { acao, usuarioId, nome, papel, empresa, funcao } = await req.json();
   if (!usuarioId) return NextResponse.json({ erro: 'Informe o usuário.' }, { status: 400 });
 
   const admin = supabaseAdmin();
@@ -49,10 +49,14 @@ export async function POST(req: Request) {
     if (papel && !['admin', 'contratante', 'contratada', 'cliente'].includes(papel)) {
       return NextResponse.json({ erro: 'Papel inválido.' }, { status: 400 });
     }
+    if (funcao && !['campo', 'escritorio', 'gestao'].includes(funcao)) {
+      return NextResponse.json({ erro: 'Função inválida.' }, { status: 400 });
+    }
     const patch: any = {};
     if (nome !== undefined) patch.nome = nome;
     if (papel !== undefined) patch.papel = papel;
     if (empresa !== undefined) patch.empresa = empresa;
+    if (funcao !== undefined) patch.funcao = funcao || null;
     if (!Object.keys(patch).length) return NextResponse.json({ erro: 'Nada para atualizar.' }, { status: 400 });
 
     const { error } = await admin.from('profiles').update(patch).eq('id', usuarioId);
