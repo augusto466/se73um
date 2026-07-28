@@ -20,8 +20,7 @@ export default async function Financeiro() {
       supabase.from('recorrentes').select('*').order('descricao'),
       supabase.from('orcamento_item').select('id, codigo, descricao, etapa_num, custo_orcado, ordem').eq('obra_id', 1).order('ordem'),
       supabase.from('lancamento_item').select('*'),
-    ]);
-    ]);
+       ]);
 
   return (
     <FinanceiroClient
