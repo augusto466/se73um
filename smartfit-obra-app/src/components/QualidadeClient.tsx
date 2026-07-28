@@ -25,7 +25,7 @@ export default function QualidadeClient({ modelos, inspecoesIniciais, eventos, o
   const total = insp.length;
   const aprovadas = insp.filter(i => i.resultado === 'aprovado').length;
   const reprovadas = insp.filter(i => i.resultado === 'reprovado').length;
-  const conformidade = total ? (aprovadas + insp.filter(i => i.resultado === 'aprovado_ressalvas').length) / total * 100 : 0;
+  const conformidade = total ? (aprovadas + insp.filter(i => i.resultado === 'aprovado_ressalvas').length) / total * 100 : null;
 
   async function criar() {
     const mod = modelos.find(m => String(m.id) === f.modelo_id);
@@ -88,7 +88,7 @@ export default function QualidadeClient({ modelos, inspecoesIniciais, eventos, o
         <div className="kpi blu"><div className="lbl">Inspeções realizadas</div><div className="val">{total}</div></div>
         <div className="kpi okk"><div className="lbl">Aprovadas</div><div className="val">{aprovadas}</div></div>
         <div className="kpi acc"><div className="lbl">Reprovadas</div><div className="val">{reprovadas}</div></div>
-        <div className="kpi wrn"><div className="lbl">Índice de conformidade</div><div className="val">{fmtPct(conformidade)}</div><div className="foot">aprovadas + com ressalvas</div></div>
+        <div className={`kpi ${conformidade === null ? '' : 'wrn'}`}><div className="lbl">Índice de conformidade</div><div className="val">{conformidade === null ? 'sem dados' : fmtPct(conformidade)}</div><div className="foot">{conformidade === null ? 'nenhuma inspeção registrada' : 'aprovadas + com ressalvas'}</div></div>
       </div>
 
       <div className="panel" style={{ marginTop: 14 }}>

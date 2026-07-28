@@ -25,9 +25,9 @@ export default function RotinasClient({ rotinasIniciais, ocorrencias, obras, pes
   });
 
   const pendentes = ocs.filter(o => o.status === 'pendente');
-  const noPrazo = ocs.filter(o => o.status === 'concluida' && o.concluida_em && o.concluida_em.slice(0, 10) <= o.vencimento).length;
-  const concluidas = ocs.filter(o => o.status === 'concluida').length;
-  const aderencia = concluidas ? noPrazo / concluidas * 100 : 0;
+  const vencidas = ocs.filter(o => o.vencimento <= hoje);
+  const noPrazo = vencidas.filter(o => o.status === 'concluida' && o.concluida_em && o.concluida_em.slice(0, 10) <= o.vencimento).length;
+  const aderencia = vencidas.length ? noPrazo / vencidas.length * 100 : null;
 
   async function criar() {
     if (!f.titulo.trim()) { alert('Informe o título da rotina.'); return; }
@@ -68,7 +68,7 @@ export default function RotinasClient({ rotinasIniciais, ocorrencias, obras, pes
         <div className="kpi blu"><div className="lbl">Rotinas ativas</div><div className="val">{rotinas.filter(r => r.ativo).length}</div></div>
         <div className="kpi wrn"><div className="lbl">Ocorrências pendentes</div><div className="val">{pendentes.length}</div></div>
         <div className="kpi acc"><div className="lbl">Atrasadas</div><div className="val">{pendentes.filter(o => o.vencimento < hoje).length}</div></div>
-        <div className="kpi okk"><div className="lbl">Aderência (concluídas no prazo)</div><div className="val">{fmtPct(aderencia)}</div><div className="foot">{noPrazo} de {concluidas}</div></div>
+        <div className={`kpi ${aderencia === null ? '' : 'okk'}`}><div className="lbl">Aderência (concluídas no prazo)</div><div className="val">{aderencia === null ? 'sem dados' : fmtPct(aderencia)}</div><div className="foot">{aderencia === null ? 'nenhuma ocorrência vencida ainda' : `${noPrazo} de ${vencidas.length}`}</div></div>
       </div>
 
       <div className="panel" style={{ marginTop: 14 }}>

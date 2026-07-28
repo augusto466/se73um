@@ -38,15 +38,17 @@ export default function CockpitClient(p: any) {
                 : gargalos.length > 0
                 ? <><b>{fmtC(impactoTravado)}</b> em decisões esperando você. Nada crítico.</>
                 : <>Nada crítico e nada travado. Bom momento para olhar adiante.</>}
-              {faltaDado && <><br /><span style={{ color: 'var(--gray-2)', fontSize: 12 }}>
+              {faltaDado && <><br /><span style={{ color: 'var(--warn)', fontSize: 12, fontWeight: 600 }}>
                 ⓘ Leitura parcial: {[!p.saldoInformado && 'saldo de caixa não informado', !margem.temProjecao && 'poucas compras aprovadas para projetar margem'].filter(Boolean).join(' · ')}.
               </span></>}
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 44, fontWeight: 700, lineHeight: 1, color: CORES[semSaude] }}>{saude.nota}</div>
+            {saude.completo
+              ? <div style={{ fontFamily: 'var(--mono)', fontSize: 44, fontWeight: 700, lineHeight: 1, color: CORES[semSaude] }}>{saude.nota}</div>
+              : <div style={{ fontFamily: 'var(--mono)', fontSize: 28, fontWeight: 700, lineHeight: 1, color: 'var(--gray)' }}>Parcial</div>}
             <div style={{ fontSize: 9.5, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--gray)', fontWeight: 700, marginTop: 4 }}>
-              Índice de saúde{saude.completo ? '' : ' · parcial'}
+              Índice de saúde
             </div>
             <div className="hint" style={{ fontSize: 10, marginTop: 3 }}>{saude.dims.map((d: any) => d.nome).join(' · ')}</div>
           </div>

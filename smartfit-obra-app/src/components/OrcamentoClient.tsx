@@ -39,6 +39,7 @@ export default function OrcamentoClient({ itens, obra }: { itens: any[]; obra: a
   }, [itens]);
 
   const desvioTot = tot.orcado > 0 ? (tot.realizado - tot.orcado) / tot.orcado : 0;
+  const semExecucao = tot.orcado > 0 && tot.realizado === 0;
 
   // cor do desvio: verde dentro do orcado, vermelho estourou
   const corDesvio = (real: number, orc: number) => {
@@ -66,7 +67,7 @@ export default function OrcamentoClient({ itens, obra }: { itens: any[]; obra: a
         <div className="kpi blu"><div className="lbl">Orçado (custo)</div><div className="val">{fmt(tot.orcado)}</div><div className="foot">teto de execução</div></div>
         <div className="kpi acc"><div className="lbl">Contratado</div><div className="val">{fmt(tot.contratado)}</div><div className="foot">comprometido ({pct(tot.orcado ? tot.contratado / tot.orcado : 0)})</div></div>
         <div className="kpi wrn"><div className="lbl">Realizado</div><div className="val">{fmt(tot.realizado)}</div><div className="foot">pago ({pct(tot.orcado ? tot.realizado / tot.orcado : 0)})</div></div>
-        <div className={`kpi ${desvioTot > 0 ? 'acc' : 'okk'}`}><div className="lbl">Saldo a realizar</div><div className="val">{fmt(tot.orcado - tot.realizado)}</div><div className="foot">{desvioTot > 0 ? `estouro de ${pct(desvioTot)}` : 'dentro do orçado'}</div></div>
+        <div className={`kpi ${semExecucao ? '' : desvioTot > 0 ? 'acc' : 'okk'}`}><div className="lbl">Saldo a realizar</div><div className="val">{fmt(tot.orcado - tot.realizado)}</div><div className="foot">{semExecucao ? 'sem execução ainda' : desvioTot > 0 ? `estouro de ${pct(desvioTot)}` : 'dentro do orçado'}</div></div>
       </div>
 
       <div className="panel" style={{ marginTop: 14 }}>
@@ -135,7 +136,7 @@ export default function OrcamentoClient({ itens, obra }: { itens: any[]; obra: a
                 <td className="num">{fmt(tot.contratado)}</td>
                 <td className="num">{fmt(tot.realizado)}</td>
                 <td className="num">{fmt(tot.orcado - tot.realizado)}</td>
-                <td className="num" style={{ color: desvioTot > 0 ? 'var(--risk)' : 'var(--ok)' }}>{pct(desvioTot)}</td>
+                <td className="num" style={{ color: corDesvio(tot.realizado, tot.orcado) }}>{tot.realizado > 0 || tot.orcado === 0 ? pct(desvioTot) : '—'}</td>
                 <td></td>
               </tr>
             </tfoot>
