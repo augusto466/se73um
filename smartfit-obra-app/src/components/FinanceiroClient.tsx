@@ -3,11 +3,12 @@ import { useMemo, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { fmtBRL, fmtPct, fmtData } from '@/lib/contrato';
 import { LANC_STATUS, ORIGEM_LABEL, TIPO_LABEL, situacao, parseNum, projetarCaixa } from '@/lib/financeiro';
+import ApropriarItem from './ApropriarItem';
 
 type Aba = 'agenda' | 'pagar' | 'receber' | 'fluxo' | 'dre' | 'recorrentes';
 
-export default function FinanceiroClient({ lancamentos, categorias, obras, saldoInicial, dre, recorrentes, papel }:
-  { lancamentos: any[]; categorias: any[]; obras: any[]; saldoInicial: number; dre: any[]; recorrentes: any[]; papel: string }) {
+export default function FinanceiroClient({ lancamentos, categorias, obras, saldoInicial, dre, recorrentes, papel, itensOrcamento = [], apropriacoes = [] }:
+  { lancamentos: any[]; categorias: any[]; obras: any[]; saldoInicial: number; dre: any[]; recorrentes: any[]; papel: string; itensOrcamento?: any[]; apropriacoes?: any[] }) {
 
   const [lancs, setLancs] = useState(lancamentos);
   const [recs, setRecs] = useState(recorrentes);
@@ -16,9 +17,13 @@ export default function FinanceiroClient({ lancamentos, categorias, obras, saldo
   const [filtroObra, setFiltroObra] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [novo, setNovo] = useState(false);
+  const [aprop, setAprop] = useState(apropriacoes);
+  const [apropriando, setApropriando] = useState<any | null>(null);
   const supabase = supabaseBrowser();
   const ehAdmin = papel === 'admin';
   const hoje = new Date().toISOString().slice(0, 10);
+
+  const aprsDe = (lancId: number) => aprop.filter(a => a.lancamento_id === lancId);
 
   const vis = useMemo(
     () => lancs.filter(l => !filtroObra || String(l.obra_id) === filtroObra),
@@ -78,6 +83,12 @@ export default function FinanceiroClient({ lancamentos, categorias, obras, saldo
     location.reload();
   }
 
+  // Recebe as apropriacoes salvas de um lancamento e atualiza o estado local,
+  // trocando as antigas daquele lancamento pelas novas.
+  function onApropriado(lancId: number, novas: any[]) {
+    setAprop(a => [...a.filter(x => x.lancamento_id !== lancId), ...novas]);
+  }
+
   const AbaBtn = ({ id, children }: { id: Aba; children: React.ReactNode }) => (
     <button className={`subtab ${aba === id ? 'on' : ''}`} onClick={() => setAba(id)}>{children}</button>
   );
@@ -85,12 +96,14 @@ export default function FinanceiroClient({ lancamentos, categorias, obras, saldo
   const Linha = ({ l }: { l: any }) => {
     const [lbl, cls] = LANC_STATUS[l.status] ?? ['?', 'st-pend'];
     const sit = situacao(l);
+    const nApr = aprsDe(l.id).length;
+    const podeApropriar = ehAdmin && l.natureza === 'pagar';
     return (
       <tr style={sit === 'vencido' ? { background: 'var(--risk-soft)' } : sit === 'vence_semana' ? { background: 'var(--warn-soft)' } : undefined}>
         <td className="num" style={{ color: sit === 'vencido' ? 'var(--risk)' : undefined, fontWeight: sit === 'vencido' ? 600 : 400 }}>
           {fmtData(l.vencimento)}{sit === 'vencido' ? ' ⚠' : ''}
         </td>
-        <td><b>{l.descricao}</b><div className="hint">{l.contraparte ?? '—'} · {nomeCat(l.categoria_id)} · <i>{ORIGEM_LABEL[l.origem]}</i></div></td>
+        <td><b>{l.descricao}</b><div className="hint">{l.contraparte ?? '—'} · {nomeCat(l.categoria_id)} · <i>{ORIGEM_LABEL[l.origem]}</i>{nApr > 0 ? ` · ▣ apropriado` : ''}</div></td>
         <td style={{ fontFamily: 'var(--mono)', fontSize: 11.5 }}>{nomeObra(l.obra_id)}</td>
         <td className="num" style={{ color: l.natureza === 'receber' ? 'var(--ok)' : 'var(--ink)', fontWeight: 600 }}>
           {l.natureza === 'receber' ? '+' : '−'} {fmtBRL(Number(l.valor))}
@@ -98,6 +111,13 @@ export default function FinanceiroClient({ lancamentos, categorias, obras, saldo
         <td><span className={`stamp ${cls}`}><span className="dot" />{lbl}</span></td>
         {ehAdmin && (
           <td style={{ whiteSpace: 'nowrap' }}>
+            {podeApropriar && (
+              <button className="mini" disabled={ocupado} onClick={() => setApropriando(l)}
+                style={nApr > 0 ? { color: 'var(--ok)', borderColor: 'var(--ok)' } : undefined}
+                title={nApr > 0 ? `Apropriado a ${nApr} item(ns)` : 'Apropriar ao orçamento'}>
+                {nApr > 0 ? `▣ ${nApr}` : 'apropriar'}
+              </button>
+            )}{' '}
             {['previsto', 'confirmado'].includes(l.status) && <>
               <button className="mini" disabled={ocupado} onClick={() => quitar(l)}>✓ baixar</button>{' '}
               {l.status === 'previsto' && <button className="mini" disabled={ocupado} onClick={() => mudarStatus(l, 'confirmado')}>confirmar</button>}{' '}
@@ -122,6 +142,17 @@ export default function FinanceiroClient({ lancamentos, categorias, obras, saldo
 
   return (
     <>
+      {apropriando && (
+        <ApropriarItem
+          lancamento={apropriando}
+          itens={itensOrcamento}
+          apropriacoesIniciais={aprsDe(apropriando.id)}
+          obraId={apropriando.obra_id ?? 1}
+          onFechar={() => setApropriando(null)}
+          onMudou={novas => onApropriado(apropriando.id, novas)}
+        />
+      )}
+
       <div className="kpis" style={{ gridTemplateColumns: 'repeat(5,1fr)' }}>
         <div className="kpi blu">
           <div className="lbl">Saldo em caixa</div>

@@ -10,7 +10,7 @@ export default async function Financeiro() {
   const { data: perfil } = await supabase.from('profiles').select('papel').eq('id', user!.id).single();
   if (!['admin', 'contratante'].includes(perfil?.papel ?? '')) redirect('/visao');
 
-  const [{ data: lancs }, { data: cats }, { data: obras }, { data: caixa }, { data: dre }, { data: recor }] =
+  const [{ data: lancs }, { data: cats }, { data: obras }, { data: caixa }, { data: dre }, { data: recor }, { data: itensOrc }, { data: apropriacoes }] =
     await Promise.all([
       supabase.from('lancamentos').select('*').order('vencimento'),
       supabase.from('categorias_financeiras').select('*').order('ordem'),
@@ -18,6 +18,9 @@ export default async function Financeiro() {
       supabase.from('caixa_config').select('*').eq('id', 1).maybeSingle(),
       supabase.from('dre_obra').select('*'),
       supabase.from('recorrentes').select('*').order('descricao'),
+      supabase.from('orcamento_item').select('id, codigo, descricao, etapa_num, custo_orcado, ordem').eq('obra_id', 1).order('ordem'),
+      supabase.from('lancamento_item').select('*'),
+    ]);
     ]);
 
   return (
@@ -29,6 +32,8 @@ export default async function Financeiro() {
       dre={dre ?? []}
       recorrentes={recor ?? []}
       papel={perfil?.papel ?? 'contratante'}
+      itensOrcamento={itensOrc ?? []}
+      apropriacoes={apropriacoes ?? []}
     />
   );
 }
