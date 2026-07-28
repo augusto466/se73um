@@ -35,7 +35,7 @@ export default function OrcamentoClient({ itens, obra }: { itens: any[]; obra: a
       e.contratado += Number(i.contratado);
       e.realizado += Number(i.realizado);
     }
-    return [...m.values()].sort((a, b) => a.num - b.num);
+    return Array.from(m.values()).sort((a, b) => a.num - b.num);
   }, [itens]);
 
   const desvioTot = tot.orcado > 0 ? (tot.realizado - tot.orcado) / tot.orcado : 0;
