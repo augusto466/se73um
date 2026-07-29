@@ -30,6 +30,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
   const grupos: Grupo[] = cliente ? gruposCliente : [
       { titulo: 'Comando', itens: [
       { href: '/meu-dia', label: 'Meu Dia', ic: '◈', badge: badges.meuDia },
+      ...(gestor ? [{ href: '/decisoes', label: 'Decisões', ic: '◆', badge: badges.decisoes }] : []),
       ...(gestor ? [{ href: '/painel-ceo', label: 'Cockpit', ic: '◉' }] : []),
       { href: '/obras', label: 'Obras', ic: '⬢' },
     ]},
@@ -72,7 +73,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
   const focoPorFuncao: Record<string, string[]> = {
     campo: ['/meu-dia', '/cronograma', '/materiais', '/diario', '/tarefas', '/qualidade', '/colaboradores', '/rotinas'],
     escritorio: ['/meu-dia', '/financeiro', '/medicoes', '/orcamento', '/materiais', '/documentos', '/rotinas'],
-    gestao: ['/meu-dia', '/painel-ceo', '/obras', '/cronograma', '/financeiro', '/medicoes', '/orcamento', '/materiais'],
+    gestao: ['/meu-dia', '/decisoes', '/painel-ceo', '/obras', '/cronograma', '/financeiro', '/medicoes', '/orcamento', '/materiais'],
   };
   const foco = new Set(focoPorFuncao[perfil?.funcao ?? 'gestao'] ?? focoPorFuncao.gestao);
 

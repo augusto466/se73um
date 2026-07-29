@@ -22,6 +22,12 @@ export const PEDIDO_STATUS: Record<string, [string, string]> = {
   comprado: ['COMPRA EFETUADA', 'st-ok'],
 };
 
+export const DECISAO_CLIENTE_LABEL: Record<string, [string, string]> = {
+  aprovado: ['Cliente aprovou', 'st-exec'],
+  recusado: ['Cliente recusou', 'st-risk'],
+  ajuste:   ['Cliente pediu ajuste', 'st-valid'],
+};
+
 export const OBRA_STATUS: Record<string, [string, string]> = {
   ativa:     ['ATIVA', 'st-exec'],
   concluida: ['CONCLUÍDA', 'st-ok'],

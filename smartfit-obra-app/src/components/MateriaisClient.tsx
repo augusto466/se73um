@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
-import { PEDIDO_STATUS, fmtBRL, fmtData, numeroPedido } from '@/lib/contrato';
+import { PEDIDO_STATUS, DECISAO_CLIENTE_LABEL, fmtBRL, fmtData, numeroPedido } from '@/lib/contrato';
+import { decidirPedido, registrarCompraPedido } from '@/lib/pedidosMateriais';
 import Anexos from './Anexos';
 
 type Item = { descricao: string; unidade: string; qtd: string };
@@ -89,42 +90,17 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
   }
 
   async function decidir(p: any, status: 'aprovado' | 'recusado', cotacaoId?: number) {
-    let motivo: string | null = null;
-    if (status === 'recusado') {
-      motivo = prompt('Motivo da recusa (comunicação formal — Cl. 17.1):');
-      if (motivo === null) return;
-    } else {
-      motivo = prompt('Observação da aprovação (opcional — ex.: critério menor preço × prazo):') ?? null;
-    }
     setOcupado(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('pedidos_materiais').update({
-      status, cotacao_vencedora: status === 'aprovado' ? cotacaoId : null,
-      motivo_decisao: motivo, decidido_por: user?.id, decidido_em: new Date().toISOString(),
-    }).eq('id', p.id);
-    if (error) { alert('Decisão exclusiva do perfil Contratante.'); setOcupado(false); return; }
-    await audit('pedido_' + status, p.id, { cotacao_vencedora: cotacaoId, motivo });
-    fetch('/api/notificar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'pedido_decidido', pedidoId: p.id, obraId }) }).catch(() => {});
-    setPedidos(ps => ps.map(x => x.id === p.id ? { ...x, status, cotacao_vencedora: cotacaoId ?? null, motivo_decisao: motivo } : x));
+    const patch = await decidirPedido(supabase, obraId, p, status, cotacaoId);
     setOcupado(false);
+    if (patch) setPedidos(ps => ps.map(x => x.id === p.id ? { ...x, ...patch } : x));
   }
 
   async function registrarCompra(p: any) {
-    const pc = prompt('Nº do pedido de compra junto ao fornecedor:'); if (pc === null) return;
-    const nf = prompt('Nº da NF (se já emitida — Cl. 3.4.3: faturamento conforme cronograma e medições):') ?? '';
-    const compra_info = { pedido_compra: pc, nf, data: new Date().toISOString().slice(0, 10) };
     setOcupado(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('pedidos_materiais').update({
-      status: 'comprado', compra_info, decidido_por: user?.id, decidido_em: new Date().toISOString(),
-    }).eq('id', p.id);
-    if (error) { alert('Ação exclusiva do perfil Contratante.'); setOcupado(false); return; }
-    await audit('compra_efetuada', p.id, compra_info);
-    fetch('/api/notificar', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'pedido_decidido', pedidoId: p.id, obraId }) }).catch(() => {});
-    setPedidos(ps => ps.map(x => x.id === p.id ? { ...x, status: 'comprado', compra_info } : x));
+    const patch = await registrarCompraPedido(supabase, obraId, p);
     setOcupado(false);
+    if (patch) setPedidos(ps => ps.map(x => x.id === p.id ? { ...x, ...patch } : x));
   }
 
   return (
@@ -209,11 +185,6 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
                 const menor = pc.length ? Math.min(...pc.map(c => Number(c.valor_total))) : 0;
                 const [lbl, cls] = PEDIDO_STATUS[p.status] ?? ['?', 'st-pend'];
                 const dc = decisaoDe(p.id);
-                const DC_SELO: Record<string, [string, string]> = {
-                  aprovado: ['Cliente aprovou', 'st-exec'],
-                  recusado: ['Cliente recusou', 'st-risk'],
-                  ajuste: ['Cliente pediu ajuste', 'st-valid'],
-                };
                 const vencedora = pc.find(c => c.id === p.cotacao_vencedora);
                 return (
                   <Frag key={p.id}>
@@ -226,10 +197,10 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
                       <td>
                         <span className={`stamp ${cls}`}><span className="dot" />{lbl}</span>
                         {p.faturamento_direto && <span className="stamp st-valid" style={{ marginLeft: 6 }}>Fat. direto</span>}
-                        {dc && DC_SELO[dc.decisao] && (
-                          <span className={`stamp ${DC_SELO[dc.decisao][1]}`} style={{ marginLeft: 6 }}
+                        {dc && DECISAO_CLIENTE_LABEL[dc.decisao] && (
+                          <span className={`stamp ${DECISAO_CLIENTE_LABEL[dc.decisao][1]}`} style={{ marginLeft: 6 }}
                             title={dc.comentario ? `Comentário: ${dc.comentario}` : undefined}>
-                            {DC_SELO[dc.decisao][0]}
+                            {DECISAO_CLIENTE_LABEL[dc.decisao][0]}
                           </span>
                         )}
                       </td>

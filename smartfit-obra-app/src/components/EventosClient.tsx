@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { DOCS_PADRAO, STATUS_LABEL, fmtBRL } from '@/lib/contrato';
+import { mudarStatusEvento, aprovarComGlosa as aprovarComGlosaAcao } from '@/lib/eventos';
 import Anexos from './Anexos';
 
 type Evento = any;
@@ -13,35 +14,18 @@ export default function EventosClient({ eventosIniciais, papel, obra }: { evento
   const supabase = supabaseBrowser();
   const podeValidar = papel === 'contratante' || papel === 'admin';
 
-  async function audit(acao: string, id: string, detalhe: any) {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('auditoria').insert({ usuario: user?.id, acao, entidade: 'eventos', entidade_id: id, detalhe, obra_id: obra.id });
-  }
-
   async function mudarStatus(ev: Evento, novo: string, glosa = 0) {
     setOcupado(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('eventos')
-      .update({ status: novo, valor_glosa: glosa, atualizado_por: user?.id, atualizado_em: new Date().toISOString() })
-      .eq('id', ev.id).eq('obra_id', obra.id);
-    if (error) { alert('Sem permissão para esta transição (perfil ' + papel + ').'); setOcupado(false); return; }
-    await audit('mudanca_status', ev.id, { de: ev.status, para: novo, glosa });
-    // dispara e-mail automático conforme o evento
-    if (novo === 'validacao' || novo === 'aprovado' || novo === 'glosado') {
-      fetch('/api/notificar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo: novo === 'validacao' ? 'submetida' : 'decidida', eventoId: ev.id, obraId: obra.id }),
-      }).catch(() => {});
-    }
-    setEventos(evts => evts.map(e => e.id === ev.id ? { ...e, status: novo, valor_glosa: glosa } : e));
+    const patch = await mudarStatusEvento(supabase, obra, papel, ev, novo, glosa);
     setOcupado(false);
+    if (patch) setEventos(evts => evts.map(e => e.id === ev.id ? { ...e, ...patch } : e));
   }
 
   async function aprovarComGlosa(ev: Evento) {
-    const v = prompt(`Valor da glosa para ${ev.id} (Cl. 3.3 — fundamentação técnica objetiva).\nValor da etapa: ${fmtBRL(Number(ev.valor_bruto))}`, '0');
-    if (v === null) return;
-    const glosa = Number(v.replace(/\./g, '').replace(',', '.')) || 0;
-    await mudarStatus(ev, 'glosado', glosa);
+    setOcupado(true);
+    const patch = await aprovarComGlosaAcao(supabase, obra, papel, ev);
+    setOcupado(false);
+    if (patch) setEventos(evts => evts.map(e => e.id === ev.id ? { ...e, ...patch } : e));
   }
 
   async function toggleDoc(ev: Evento, i: number, val: boolean) {

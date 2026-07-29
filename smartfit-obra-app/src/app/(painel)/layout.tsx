@@ -42,6 +42,7 @@ export default async function PainelLayout({ children }: { children: React.React
     pedidos: pedidos.count ?? 0,
     financeiro: financeiro.count ?? 0,
     documentos: documentos.count ?? 0,
+    decisoes: (medicoes.count ?? 0) + (pedidos.count ?? 0),
   };
 
   return (
