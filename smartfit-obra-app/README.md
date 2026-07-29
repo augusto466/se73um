@@ -34,8 +34,17 @@ Aplicação web completa com **login por usuário**, **banco compartilhado**, **
 ### 1. Supabase (banco + login) — gratuito
 1. Crie uma conta em [supabase.com](https://supabase.com) e um novo projeto (região `sa-east-1` / São Paulo).
 2. No menu **SQL Editor → New query**, cole todo o conteúdo de `supabase/schema.sql` e clique **Run**. Isso cria as tabelas, as regras de permissão (RLS) e já carrega os 25 eventos, o checklist e os RDOs iniciais.
-3. Em **Authentication → Sign In / Up**, **desative** "Allow new users to sign up" (acessos só pelo Admin).
-4. Em **Settings → API**, copie: `Project URL`, `anon public key` e `service_role key`.
+3. Depois do `schema.sql`, rode os demais `supabase/migracao-*.sql` (e `corrige-*.sql`) **nesta ordem** — os nomes não são numerados, e rodar em ordem alfabética reintroduz bug já corrigido (ex.: `migracao-comercial.sql` antes de `migracao-fase4.sql` faz o `custo_orcado` da view `painel_ceo` voltar a ser preço, não custo):
+   ```
+   migracao-multiobra, migracao-financeiro, migracao-fase2, migracao-ged, migracao-fase4,
+   migracao-advisor, migracao-replanejamento, migracao-maker, corrige-acentos-centros,
+   migracao-centro-obrigatorio, migracao-comercial, migracao-calibracao, migracao-sinapi-api,
+   migracao-galpao, corrige-base-unidades, migracao-envio, migracao-multiempresa,
+   migracao-whatsapp, migracao-funcao, migracao-meu-dia-prioridade, migracao-orcamento-base,
+   migracao-cliente-base
+   ```
+4. Em **Authentication → Sign In / Up**, **desative** "Allow new users to sign up" (acessos só pelo Admin).
+5. Em **Settings → API**, copie: `Project URL`, `anon public key` e `service_role key`.
 
 ### 2. Resend (envio de e-mail) — gratuito até 3.000 e-mails/mês
 1. Crie conta em [resend.com](https://resend.com) e gere uma **API Key**.
