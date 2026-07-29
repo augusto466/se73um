@@ -273,6 +273,16 @@ label.mini{cursor:pointer}
 .dia-item.critico{border-left:3px solid var(--risk);background:var(--risk-soft)}
 .dia-item .tp{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:3px 7px;border-radius:4px;border:1px solid;flex:none}
 
+/* ---------- RECEBIMENTO (mobile) ---------- */
+.receb-card{margin-bottom:10px}
+.receb-item{border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:10px}
+.receb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:520px){
+  .receb-grid{grid-template-columns:1fr}
+  .receb-item input,.receb-card .btn,.receb-card input{font-size:16px}
+  .receb-card .btn{padding:14px 16px}
+}
+
 /* ---------- GRIDS ---------- */
 .obras-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
 .obra-card{margin-bottom:0;display:flex;flex-direction:column}

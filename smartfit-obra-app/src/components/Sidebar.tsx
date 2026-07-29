@@ -49,6 +49,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
     ]},
     { titulo: 'Operação', itens: [
       { href: '/materiais', label: 'Materiais', ic: '◲', badge: badges.pedidos },
+      { href: '/recebimento', label: 'Recebimento', ic: '◳' },
       { href: '/diario', label: 'Diário de Obras', ic: '◱' },
       { href: '/qualidade', label: 'Qualidade', ic: '◰' },
       { href: '/tarefas', label: 'Tarefas', ic: '◧' },
@@ -71,7 +72,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
   // o que fica em foco por padrão — o resto do que o papel permite vai para
   // "Mais". Nada some de vez, e funcao nula é tratada como 'gestao'.
   const focoPorFuncao: Record<string, string[]> = {
-    campo: ['/meu-dia', '/cronograma', '/materiais', '/diario', '/tarefas', '/qualidade', '/colaboradores', '/rotinas'],
+    campo: ['/meu-dia', '/cronograma', '/materiais', '/recebimento', '/diario', '/tarefas', '/qualidade', '/colaboradores', '/rotinas'],
     escritorio: ['/meu-dia', '/financeiro', '/medicoes', '/orcamento', '/materiais', '/documentos', '/rotinas'],
     gestao: ['/meu-dia', '/decisoes', '/painel-ceo', '/obras', '/cronograma', '/financeiro', '/medicoes', '/orcamento', '/materiais'],
   };

@@ -46,6 +46,16 @@ export default function FinanceiroClient({ lancamentos, categorias, obras, saldo
 
   async function quitar(l: any) {
     const alvo = l.natureza === 'pagar' ? 'pago' : 'recebido';
+    // Checagem amigável antes de perguntar o valor — a garantia de verdade é o
+    // trigger no banco (bloqueia_pagamento_com_divergencia), isto só evita um
+    // erro cru do Postgres quando dá pra avisar antes.
+    if (alvo === 'pago' && l.origem === 'pedido' && l.origem_id) {
+      const { data: divergente } = await supabase.rpc('pedido_tem_divergencia', { p_pedido_id: Number(l.origem_id) });
+      if (divergente) {
+        alert('Este lançamento vem de um pedido com divergência de recebimento em aberto (item recusado ou quantidade recebida diferente da pedida). Resolva a divergência em Materiais antes de pagar.');
+        return;
+      }
+    }
     const v = prompt(`Valor efetivamente ${alvo}:`, String(Number(l.valor).toFixed(2)).replace('.', ','));
     if (v === null) return;
     setOcupado(true);
@@ -53,7 +63,12 @@ export default function FinanceiroClient({ lancamentos, categorias, obras, saldo
       status: alvo, pago_em: hoje, valor_pago: parseNum(v), atualizado_em: new Date().toISOString(),
     }).eq('id', l.id);
     setOcupado(false);
-    if (error) { alert('Apenas o administrador pode baixar lançamentos.'); return; }
+    if (error) {
+      alert(error.message.includes('divergência')
+        ? error.message
+        : 'Apenas o administrador pode baixar lançamentos.');
+      return;
+    }
     setLancs(ls => ls.map(x => x.id === l.id ? { ...x, status: alvo, pago_em: hoje, valor_pago: parseNum(v) } : x));
   }
 
@@ -61,7 +76,7 @@ export default function FinanceiroClient({ lancamentos, categorias, obras, saldo
     setOcupado(true);
     const { error } = await supabase.from('lancamentos').update({ status, atualizado_em: new Date().toISOString() }).eq('id', l.id);
     setOcupado(false);
-    if (error) { alert('Sem permissão.'); return; }
+    if (error) { alert(error.message.includes('divergência') ? error.message : 'Sem permissão.'); return; }
     setLancs(ls => ls.map(x => x.id === l.id ? { ...x, status } : x));
   }
 

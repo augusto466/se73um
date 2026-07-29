@@ -12,8 +12,13 @@ const itemVazio = (): Item => ({ descricao: '', unidade: 'un', qtd: '' });
 const cotVazia = (): Cot => ({ fornecedor: '', cnpj: '', valor_total: '', prazo_entrega: '', condicoes_pagamento: '', frete: '', observacoes: '' });
 const num = (s: string) => Number(String(s).replace(/\./g, '').replace(',', '.')) || 0;
 
-export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eventos, papel, obraId, decisoesCliente = [] }:
-  { pedidosIniciais: any[]; cotacoesIniciais: any[]; eventos: any[]; papel: string; obraId: number; decisoesCliente?: any[] }) {
+export default function MateriaisClient({
+  pedidosIniciais, cotacoesIniciais, eventos, papel, obraId, decisoesCliente = [],
+  recebimentosIniciais = [], recebimentoItensIniciais = [], pessoas = [],
+}: {
+  pedidosIniciais: any[]; cotacoesIniciais: any[]; eventos: any[]; papel: string; obraId: number; decisoesCliente?: any[];
+  recebimentosIniciais?: any[]; recebimentoItensIniciais?: any[]; pessoas?: any[];
+}) {
 
   const [pedidos, setPedidos] = useState(pedidosIniciais);
   // Decisao do cliente por pedido, para mostrar o selo na coluna de status.
@@ -22,8 +27,36 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
   const [aberto, setAberto] = useState<number | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [ocupado, setOcupado] = useState(false);
+  const [recebimentos, setRecebimentos] = useState(recebimentosIniciais);
+  const [recebimentoItens] = useState(recebimentoItensIniciais);
   const supabase = supabaseBrowser();
   const podeDecidir = papel === 'contratante' || papel === 'admin';
+
+  const pessoaNome = (id: string | null) => id ? (pessoas.find(p => p.id === id)?.nome ?? '—') : '—';
+  const recebimentosDe = (pid: number) => recebimentos.filter(r => r.pedido_id === pid);
+  const itensDe = (recebimentoId: number) => recebimentoItens.filter((i: any) => i.recebimento_id === recebimentoId);
+
+  // Espelha public.pedido_tem_divergencia() (supabase/migracao-recebimento.sql)
+  // só para exibir o selo aqui — a trava de verdade é o trigger no banco,
+  // isto é só leitura para não precisar de uma chamada RPC por pedido na lista.
+  function temDivergencia(p: any) {
+    const regs = recebimentosDe(p.id).filter(r => r.status === 'registrado');
+    const todosItens = regs.flatMap(r => itensDe(r.id));
+    if (todosItens.some((i: any) => Number(i.qtd_recusada) > 0)) return true;
+    const temFinal = regs.some(r => r.final_do_pedido);
+    if (!temFinal) return false;
+    const porIdx = new Map<number, number>();
+    for (const i of todosItens) porIdx.set(i.pedido_item_idx, (porIdx.get(i.pedido_item_idx) ?? 0) + Number(i.qtd_recebida));
+    return (p.itens ?? []).some((it: any, idx: number) => (porIdx.get(idx) ?? 0) !== Number(it.qtd));
+  }
+
+  async function marcarRecebimento(r: any, status: 'resolvido' | 'cancelado') {
+    setOcupado(true);
+    const { error } = await supabase.from('recebimento').update({ status }).eq('id', r.id);
+    setOcupado(false);
+    if (error) { alert(error.message); return; }
+    setRecebimentos(rs => rs.map(x => x.id === r.id ? { ...x, status } : x));
+  }
 
   const [form, setForm] = useState({ titulo: '', evento_id: '', necessidade: '', justificativa: '' });
   const [itens, setItens] = useState<Item[]>([itemVazio()]);
@@ -235,34 +268,90 @@ export default function MateriaisClient({ pedidosIniciais, cotacoesIniciais, eve
                           ))}</tbody>
                         </table></div>
 
-                        <div className="fg"><label>Mapa comparativo de cotações</label></div>
-                        <div className="tblwrap"><table>
-                          <thead><tr>{podeDecidir && p.status === 'enviado' && <th>Aprovar</th>}<th>Fornecedor</th><th>CNPJ</th><th className="num">Valor total</th><th>Prazo</th><th>Pagamento</th><th>Frete</th><th>Obs.</th></tr></thead>
-                          <tbody>
-                            {pc.map(c => {
-                              const ehMenor = Number(c.valor_total) === menor;
-                              const ehVenc = c.id === p.cotacao_vencedora;
-                              return (
-                                <tr key={c.id} style={ehVenc ? { background: 'var(--ok-soft)' } : ehMenor ? { background: 'var(--info-soft)' } : undefined}>
-                                  {podeDecidir && p.status === 'enviado' && (
-                                    <td><button className="mini" disabled={ocupado} onClick={() => decidir(p, 'aprovado', c.id)}>✓ escolher</button></td>
-                                  )}
-                                  <td><b>{c.fornecedor}</b>{ehMenor ? ' ★' : ''}{ehVenc ? ' — VENCEDORA' : ''}</td>
-                                  <td style={{ fontFamily: 'var(--mono)', fontSize: 11.5 }}>{c.cnpj ?? '—'}</td>
-                                  <td className="num"><b>{fmtBRL(Number(c.valor_total))}</b></td>
-                                  <td>{c.prazo_entrega ?? '—'}</td>
-                                  <td>{c.condicoes_pagamento ?? '—'}</td>
-                                  <td>{c.frete ?? '—'}</td>
-                                  <td className="hint">{c.observacoes ?? ''}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table></div>
-                        <p className="hint" style={{ margin: '6px 0 10px' }}>★ menor preço. A escolha não precisa ser o menor valor — prazo e condições podem justificar (registre na observação da aprovação).</p>
+                        {podeDecidir && (
+                          <>
+                            <div className="fg"><label>Mapa comparativo de cotações</label></div>
+                            <div className="tblwrap"><table>
+                              <thead><tr>{p.status === 'enviado' && <th>Aprovar</th>}<th>Fornecedor</th><th>CNPJ</th><th className="num">Valor total</th><th>Prazo</th><th>Pagamento</th><th>Frete</th><th>Obs.</th></tr></thead>
+                              <tbody>
+                                {pc.map(c => {
+                                  const ehMenor = Number(c.valor_total) === menor;
+                                  const ehVenc = c.id === p.cotacao_vencedora;
+                                  return (
+                                    <tr key={c.id} style={ehVenc ? { background: 'var(--ok-soft)' } : ehMenor ? { background: 'var(--info-soft)' } : undefined}>
+                                      {p.status === 'enviado' && (
+                                        <td><button className="mini" disabled={ocupado} onClick={() => decidir(p, 'aprovado', c.id)}>✓ escolher</button></td>
+                                      )}
+                                      <td><b>{c.fornecedor}</b>{ehMenor ? ' ★' : ''}{ehVenc ? ' — VENCEDORA' : ''}</td>
+                                      <td style={{ fontFamily: 'var(--mono)', fontSize: 11.5 }}>{c.cnpj ?? '—'}</td>
+                                      <td className="num"><b>{fmtBRL(Number(c.valor_total))}</b></td>
+                                      <td>{c.prazo_entrega ?? '—'}</td>
+                                      <td>{c.condicoes_pagamento ?? '—'}</td>
+                                      <td>{c.frete ?? '—'}</td>
+                                      <td className="hint">{c.observacoes ?? ''}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table></div>
+                            <p className="hint" style={{ margin: '6px 0 10px' }}>★ menor preço. A escolha não precisa ser o menor valor — prazo e condições podem justificar (registre na observação da aprovação).</p>
+                          </>
+                        )}
+                        {!podeDecidir && pc.length > 0 && (
+                          <p className="hint" style={{ margin: '6px 0 10px' }}>{pc.length} cotação(ões) em análise pela contratante.</p>
+                        )}
 
                         <div className="fg" style={{ marginBottom: 10 }}><label>Anexos (PDFs das cotações, pedido de compra, NF)</label>
                           <Anexos entidade="pedido" entidadeId={String(p.id)} obraId={obraId} /></div>
+
+                        {['aprovado', 'comprado'].includes(p.status) && (
+                          <div style={{ marginBottom: 10 }}>
+                            <div className="fg"><label>Recebimento</label></div>
+                            {recebimentosDe(p.id).length === 0 && <p className="hint">Nenhuma conferência registrada em obra ainda.</p>}
+                            {recebimentosDe(p.id).map(r => {
+                              const divRec = itensDe(r.id).some((i: any) => Number(i.qtd_recusada) > 0);
+                              return (
+                                <div key={r.id} className={`dia-item ${r.status === 'registrado' && divRec ? 'critico' : ''}`} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                                    <div>
+                                      <b>{fmtData(r.recebido_em?.slice(0, 10))}</b> · {pessoaNome(r.recebido_por)}
+                                      {r.final_do_pedido && <span className="stamp st-valid" style={{ marginLeft: 6 }}>entrega final</span>}
+                                      <span className={`stamp ${r.status === 'registrado' ? 'st-pend' : r.status === 'resolvido' ? 'st-ok' : 'st-risk'}`} style={{ marginLeft: 6 }}>{r.status}</span>
+                                      {r.observacao && <div className="hint">{r.observacao}</div>}
+                                    </div>
+                                    {podeDecidir && r.status === 'registrado' && (
+                                      <div style={{ display: 'flex', gap: 6 }}>
+                                        <button className="mini" disabled={ocupado} onClick={() => marcarRecebimento(r, 'resolvido')}>marcar resolvido</button>
+                                        <button className="mini danger" disabled={ocupado} onClick={() => marcarRecebimento(r, 'cancelado')}>cancelar</button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="tblwrap"><table>
+                                    <thead><tr><th>Item</th><th className="num">Pedida</th><th className="num">Recebida</th><th className="num">Aceita</th><th className="num">Recusada</th><th>Motivo</th></tr></thead>
+                                    <tbody>
+                                      {itensDe(r.id).map((i: any) => (
+                                        <tr key={i.id} style={Number(i.qtd_recusada) > 0 ? { background: 'var(--risk-soft)' } : undefined}>
+                                          <td>{i.descricao}</td>
+                                          <td className="num">{Number(i.qtd_pedida).toLocaleString('pt-BR')} {i.unidade}</td>
+                                          <td className="num">{Number(i.qtd_recebida).toLocaleString('pt-BR')}</td>
+                                          <td className="num">{Number(i.qtd_aceita).toLocaleString('pt-BR')}</td>
+                                          <td className="num">{Number(i.qtd_recusada).toLocaleString('pt-BR')}</td>
+                                          <td className="hint">{i.motivo_recusa ?? ''}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table></div>
+                                </div>
+                              );
+                            })}
+                            {temDivergencia(p) && (
+                              <div className="alert risk" style={{ marginTop: 8 }}>
+                                <b>Divergência aberta</b>
+                                O lançamento deste pedido não pode ser pago enquanto a divergência não for resolvida.
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {p.motivo_decisao && <div className="alert info"><b>Decisão registrada</b>{p.motivo_decisao}</div>}
                         {p.compra_info && <div className="alert info"><b>Compra efetuada</b>Pedido de compra: {p.compra_info.pedido_compra || '—'} · NF: {p.compra_info.nf || '—'} · Data: {fmtData(p.compra_info.data)}</div>}
