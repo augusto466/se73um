@@ -305,6 +305,7 @@ group by ob.id, ob.codigo, ob.valor_global;
 -- Ela somava valor_orcado (com BDI) e rotulava como custo_orcado. É essa view
 -- que alimenta o Cockpit e o retrato do advisor — o erro se propagava para tudo.
 -- Estrutura idêntica à original; muda só a origem do custo e acrescenta o preço.
+-- SUPERADA: a versão vigente é a de migracao-cliente-base.sql (mesma lógica, com security_invoker explícito).
 create or replace view public.painel_ceo as
 select o.id as obra_id, o.codigo, o.nome, o.cliente, o.status,
        o.valor_global, o.entrega_final, o.mes_atual, o.meses,

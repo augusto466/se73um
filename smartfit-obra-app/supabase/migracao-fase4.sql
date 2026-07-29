@@ -122,6 +122,7 @@ select obra_id, item, fornecedor, valor, total,
 from ord;
 
 -- ---------- 6) VIEW: PAINEL EXECUTIVO (uma linha por obra) ----------
+-- SUPERADA: a versão vigente é a de migracao-cliente-base.sql (corrige custo_orcado, que aqui ainda é preço).
 create or replace view public.painel_ceo as
 select o.id as obra_id, o.codigo, o.nome, o.cliente, o.status,
        o.valor_global, o.entrega_final, o.mes_atual, o.meses,
