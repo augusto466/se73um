@@ -15,6 +15,8 @@ export default function RotinasClient({ rotinasIniciais, ocorrencias, obras, pes
   const [ocs, setOcs] = useState(ocorrencias);
   const [novo, setNovo] = useState(false);
   const [ocupado, setOcupado] = useState(false);
+  const [editandoResp, setEditandoResp] = useState<number | null>(null);
+  const [respSel, setRespSel] = useState('');
   const supabase = supabaseBrowser();
   const podeGerir = ['admin', 'contratante'].includes(papel);
   const hoje = new Date().toISOString().slice(0, 10);
@@ -31,6 +33,7 @@ export default function RotinasClient({ rotinasIniciais, ocorrencias, obras, pes
 
   async function criar() {
     if (!f.titulo.trim()) { alert('Informe o título da rotina.'); return; }
+    if (!f.responsavel_id) { alert('Selecione um responsável.'); return; }
     setOcupado(true);
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.from('rotinas').insert({
@@ -51,6 +54,21 @@ export default function RotinasClient({ rotinasIniciais, ocorrencias, obras, pes
   async function alternar(r: any) {
     const { error } = await supabase.from('rotinas').update({ ativo: !r.ativo }).eq('id', r.id);
     if (!error) setRotinas(rs => rs.map(x => x.id === r.id ? { ...x, ativo: !x.ativo } : x));
+  }
+
+  function abrirEdicaoResp(r: any) {
+    setEditandoResp(r.id);
+    setRespSel(r.responsavel_id ?? '');
+  }
+
+  async function salvarResp(r: any) {
+    if (!respSel) { alert('Selecione um responsável.'); return; }
+    setOcupado(true);
+    const { error } = await supabase.from('rotinas').update({ responsavel_id: respSel }).eq('id', r.id);
+    setOcupado(false);
+    if (error) { alert(error.message); return; }
+    setRotinas(rs => rs.map(x => x.id === r.id ? { ...x, responsavel_id: respSel } : x));
+    setEditandoResp(null);
   }
 
   async function gerar() {
@@ -92,7 +110,7 @@ export default function RotinasClient({ rotinasIniciais, ocorrencias, obras, pes
                 </select></div>
               <div className="fg"><label>Responsável</label>
                 <select value={f.responsavel_id} onChange={e => setF({ ...f, responsavel_id: e.target.value })}>
-                  <option value="">— não definido —</option>
+                  <option value="">— selecione —</option>
                   {pessoas.map(p => <option key={p.id} value={p.id}>{p.nome ?? p.email}</option>)}
                 </select></div>
               <div className="fg"><label>Frequência</label>
@@ -130,7 +148,23 @@ export default function RotinasClient({ rotinasIniciais, ocorrencias, obras, pes
                   <td><b>{r.titulo}</b>{r.detalhe && <div className="hint">{r.detalhe}</div>}</td>
                   <td style={{ fontFamily: 'var(--mono)', fontSize: 11.5 }}>{r.obra_id ? (obras.find(o => o.id === r.obra_id)?.codigo ?? '—') : 'Empresa'}</td>
                   <td>{FREQ[r.frequencia]}{r.dia_semana != null ? ` · ${DIAS[r.dia_semana]}` : ''}{r.dia_mes ? ` · dia ${r.dia_mes}` : ''}</td>
-                  <td>{pessoas.find(p => p.id === r.responsavel_id)?.nome ?? '—'}</td>
+                  <td>
+                    {editandoResp === r.id
+                      ? <>
+                          <select value={respSel} onChange={e => setRespSel(e.target.value)}>
+                            <option value="">— selecione —</option>
+                            {pessoas.map(p => <option key={p.id} value={p.id}>{p.nome ?? p.email}</option>)}
+                          </select>{' '}
+                          <button className="mini" disabled={ocupado} onClick={() => salvarResp(r)}>salvar</button>{' '}
+                          <button className="mini" onClick={() => setEditandoResp(null)}>cancelar</button>
+                        </>
+                      : podeGerir
+                      ? <span style={{ cursor: 'pointer' }} onClick={() => abrirEdicaoResp(r)}>
+                          {pessoas.find(p => p.id === r.responsavel_id)?.nome ?? '—'}
+                          <span className="hint" style={{ marginLeft: 6 }}>editar</span>
+                        </span>
+                      : (pessoas.find(p => p.id === r.responsavel_id)?.nome ?? '—')}
+                  </td>
                   <td>{r.prioridade === 'alta' ? <span className="stamp st-risk">ALTA</span> : r.prioridade === 'media' ? <span className="stamp st-valid">MÉDIA</span> : <span className="stamp st-pend">BAIXA</span>}</td>
                   <td>{r.ativo ? <span className="stamp st-ok"><span className="dot" />ATIVA</span> : <span className="stamp st-pend"><span className="dot" />PAUSADA</span>}</td>
                   {podeGerir && <td><button className="mini" onClick={() => alternar(r)}>{r.ativo ? 'pausar' : 'reativar'}</button></td>}

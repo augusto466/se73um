@@ -270,6 +270,7 @@ label.mini{cursor:pointer}
 .dia-item{display:flex;gap:11px;align-items:center;padding:11px 15px;border-bottom:1px solid var(--line)}
 .dia-item:last-child{border-bottom:0}
 .dia-item:hover{background:var(--surface-2)}
+.dia-item.critico{border-left:3px solid var(--risk);background:var(--risk-soft)}
 .dia-item .tp{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:3px 7px;border-radius:4px;border:1px solid;flex:none}
 
 /* ---------- GRIDS ---------- */

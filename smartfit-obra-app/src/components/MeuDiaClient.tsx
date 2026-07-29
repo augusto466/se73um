@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { Anel, Metricas } from './Visual';
-import { fmtData } from '@/lib/contrato';
+import { fmtData, fmtBRL, fmtPeriodo } from '@/lib/contrato';
 
 const TIPO_INFO: Record<string, { rotulo: string; cor: string; href: string }> = {
   tarefa:     { rotulo: 'TAREFA',     cor: 'st-exec',  href: '/tarefas' },
@@ -14,17 +14,27 @@ const TIPO_INFO: Record<string, { rotulo: string; cor: string; href: string }> =
   documento:  { rotulo: 'DOCUMENTO',  cor: 'st-risk',  href: '/documentos' },
 };
 
-export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens: any[]; obras: any[]; perfil: any; briefing?: any }) {
+export default function MeuDiaClient({ itens, obras, perfil, briefing, pessoas }:
+  { itens: any[]; obras: any[]; perfil: any; briefing?: any; pessoas: any[] }) {
   const [lista, setLista] = useState(itens);
   const [ocupado, setOcupado] = useState(false);
   const [verAdiante, setVerAdiante] = useState(false);
   const [briefAberto, setBriefAberto] = useState(briefing ? !briefing.lido : false);
+  const [gruposAbertos, setGruposAbertos] = useState<Set<string>>(new Set());
   const supabase = supabaseBrowser();
   const hoje = new Date().toISOString().slice(0, 10);
   const em7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
   const obraCod = (id: number | null) => id ? (obras.find(o => o.id === id)?.codigo ?? '—') : 'Empresa';
+  const pessoaNome = (id: string | null) => id ? (pessoas.find(p => p.id === id)?.nome ?? '—') : '—';
+  const toggleGrupo = (chave: string) => setGruposAbertos(s => {
+    const n = new Set(s);
+    n.has(chave) ? n.delete(chave) : n.add(chave);
+    return n;
+  });
 
+  // buckets por data — usados só no resumo do topo, que é uma leitura
+  // diferente da lista detalhada (essa é reordenada por criticidade abaixo)
   const grupos = useMemo(() => ({
     atrasado: lista.filter(i => i.vencimento && i.vencimento < hoje),
     hoje: lista.filter(i => i.vencimento === hoje),
@@ -33,6 +43,21 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens
   }), [lista, hoje, em7]);
 
   const decisoes = lista.filter(i => ['medicao', 'pedido'].includes(i.tipo));
+
+  // ---- lista detalhada: reordenada por criticidade, não só por data.
+  // decisão com consequência contratual nunca fica abaixo de rotina.
+  const decisao = (i: any) => i.tipo === 'medicao' || i.tipo === 'pedido';
+  const vencido = (i: any) => i.vencimento && i.vencimento < hoje;
+  const financeiroCritico = (i: any) => i.tipo === 'financeiro' && (vencido(i) || i.vencimento === hoje);
+  const tiers = useMemo(() => ({
+    decisaoVencida:  lista.filter(i => decisao(i) && vencido(i)),
+    decisaoPendente: lista.filter(i => decisao(i) && !vencido(i)),
+    financeiro:      lista.filter(financeiroCritico),
+    outroVencido:    lista.filter(i => !decisao(i) && i.tipo !== 'financeiro' && vencido(i)),
+    hoje:            lista.filter(i => !decisao(i) && i.tipo !== 'financeiro' && i.vencimento === hoje),
+    semana:          lista.filter(i => !decisao(i) && !financeiroCritico(i) && i.vencimento && i.vencimento > hoje && i.vencimento <= em7),
+    depois:          lista.filter(i => !decisao(i) && !financeiroCritico(i) && (!i.vencimento || i.vencimento > em7)),
+  }), [lista, hoje, em7]);
 
   async function concluirTarefa(item: any) {
     setOcupado(true);
@@ -78,9 +103,72 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens
     setLista(l => l.filter(x => !(x.tipo === 'rotina' && x.id === item.id)));
   }
 
-  const Bloco = ({ titulo, itens, destaque, colapsavel, aberto, onToggle }:
-    { titulo: string; itens: any[]; destaque?: string; colapsavel?: boolean; aberto?: boolean; onToggle?: () => void }) => {
+  const LinhaItem = ({ i, critico }: { i: any; critico?: boolean }) => {
+    const info = TIPO_INFO[i.tipo];
+    const atrasado = i.vencimento && i.vencimento < hoje;
+    return (
+      <div className={`dia-item ${critico ? 'critico' : ''}`}>
+        <span className={`stamp ${info.cor}`} style={{ minWidth: 92, justifyContent: 'center' }}>{info.rotulo}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, fontSize: 13 }}>{i.titulo}</div>
+          <div className="hint">
+            {obraCod(i.obra_id)} · {i.situacao}
+            {i.tipo === 'rotina' && i.responsavel_id ? ` · ${pessoaNome(i.responsavel_id)}` : ''}
+            {i.responsavel_txt ? ` · ${i.responsavel_txt}` : ''}
+            {i.valor ? ` · ${fmtBRL(Number(i.valor))}` : ''}
+            {i.vencimento ? ` · ${atrasado ? '⚠ venceu em ' : ''}${fmtData(i.vencimento)}` : ''}
+          </div>
+        </div>
+        {i.prioridade === 'alta' && <span className="stamp st-risk" style={{ fontSize: 9.5 }}>ALTA</span>}
+        {i.tipo === 'rotina'
+          ? <>
+              <button className="mini" disabled={ocupado} onClick={() => concluirRotina(i)}>✓ concluir</button>
+              <button className="mini" disabled={ocupado} onClick={() => excluirRotina(i)} title="excluir ocorrência">✕</button>
+            </>
+          : i.tipo === 'tarefa'
+          ? <>
+              <button className="mini" disabled={ocupado} onClick={() => concluirTarefa(i)}>✓ concluir</button>
+              <button className="mini" disabled={ocupado} onClick={() => excluirTarefa(i)} title="excluir tarefa">✕</button>
+              <Link href={info.href} className="mini" style={{ textDecoration: 'none' }}>abrir →</Link>
+            </>
+          : <Link href={info.href} className="mini" style={{ textDecoration: 'none' }}>abrir →</Link>}
+      </div>
+    );
+  };
+
+  // ocorrências repetidas da mesma rotina (ex.: RDO todo dia útil) viram uma
+  // linha-resumo expansível, em vez de afogar a tela uma por dia
+  function agruparRotinas(itens: any[]) {
+    const porTitulo = new Map<string, any[]>();
+    const saida: any[] = [];
+    for (const i of itens) {
+      if (i.tipo !== 'rotina') { saida.push(i); continue; }
+      const arr = porTitulo.get(i.titulo);
+      if (arr) arr.push(i); else porTitulo.set(i.titulo, [i]);
+    }
+    porTitulo.forEach((ocorrencias, titulo) => {
+      if (ocorrencias.length === 1) { saida.push(ocorrencias[0]); return; }
+      const datas = ocorrencias.map(o => o.vencimento).filter(Boolean).sort();
+      saida.push({
+        ehGrupo: true,
+        chave: `grupo-${titulo}`,
+        titulo,
+        obra_id: ocorrencias[0].obra_id,
+        prioridade: ocorrencias.some(o => o.prioridade === 'alta') ? 'alta' : ocorrencias[0].prioridade,
+        itens: ocorrencias,
+        vencimento: datas[0],
+        dataMin: datas[0],
+        dataMax: datas[datas.length - 1],
+        todasVencidas: ocorrencias.every(o => o.vencimento && o.vencimento < hoje),
+      });
+    });
+    return saida.sort((a, b) => (a.vencimento ?? '9').localeCompare(b.vencimento ?? '9'));
+  }
+
+  const Bloco = ({ titulo, itens, destaque, colapsavel, aberto, onToggle, forte }:
+    { titulo: string; itens: any[]; destaque?: string; colapsavel?: boolean; aberto?: boolean; onToggle?: () => void; forte?: boolean }) => {
     if (!itens.length) return null;
+    const linhas = agruparRotinas(itens);
     return (
       <div className="panel">
         <div className="hd" style={colapsavel ? { cursor: 'pointer' } : undefined} onClick={colapsavel ? onToggle : undefined}>
@@ -88,36 +176,21 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens
           {colapsavel && <button className="mini">{aberto ? 'ocultar ▲' : 'mostrar ▼'}</button>}
         </div>
         {(!colapsavel || aberto) && <div className="bd" style={{ padding: 0 }}>
-          {itens.sort((a, b) => (a.vencimento ?? '9').localeCompare(b.vencimento ?? '9')).map((i, k) => {
-            const info = TIPO_INFO[i.tipo];
-            const atrasado = i.vencimento && i.vencimento < hoje;
-            return (
-              <div key={`${i.tipo}-${i.id}-${k}`} className="dia-item">
-                <span className={`stamp ${info.cor}`} style={{ minWidth: 92, justifyContent: 'center' }}>{info.rotulo}</span>
+          {linhas.map((entry, k) => entry.ehGrupo ? (
+            <div key={entry.chave}>
+              <div className={`dia-item ${forte ? 'critico' : ''}`} style={{ cursor: 'pointer' }} onClick={() => toggleGrupo(entry.chave)}>
+                <span className={`stamp ${TIPO_INFO.rotina.cor}`} style={{ minWidth: 92, justifyContent: 'center' }}>{TIPO_INFO.rotina.rotulo}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{i.titulo}</div>
-                  <div className="hint">
-                    {obraCod(i.obra_id)} · {i.situacao}
-                    {i.responsavel_txt ? ` · ${i.responsavel_txt}` : ''}
-                    {i.vencimento ? ` · ${atrasado ? '⚠ venceu em ' : ''}${fmtData(i.vencimento)}` : ''}
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                    {gruposAbertos.has(entry.chave) ? '▾' : '▸'} {entry.titulo} — {entry.itens.length} {entry.todasVencidas ? 'atrasada(s)' : 'pendente(s)'} ({fmtPeriodo(entry.dataMin, entry.dataMax)})
                   </div>
+                  <div className="hint">{obraCod(entry.obra_id)}{entry.todasVencidas ? ' · ⚠ vencidas' : ''}</div>
                 </div>
-                {i.prioridade === 'alta' && <span className="stamp st-risk" style={{ fontSize: 9.5 }}>ALTA</span>}
-                {i.tipo === 'rotina'
-                  ? <>
-                      <button className="mini" disabled={ocupado} onClick={() => concluirRotina(i)}>✓ concluir</button>
-                      <button className="mini" disabled={ocupado} onClick={() => excluirRotina(i)} title="excluir ocorrência">✕</button>
-                    </>
-                  : i.tipo === 'tarefa'
-                  ? <>
-                      <button className="mini" disabled={ocupado} onClick={() => concluirTarefa(i)}>✓ concluir</button>
-                      <button className="mini" disabled={ocupado} onClick={() => excluirTarefa(i)} title="excluir tarefa">✕</button>
-                      <Link href={info.href} className="mini" style={{ textDecoration: 'none' }}>abrir →</Link>
-                    </>
-                  : <Link href={info.href} className="mini" style={{ textDecoration: 'none' }}>abrir →</Link>}
+                {entry.prioridade === 'alta' && <span className="stamp st-risk" style={{ fontSize: 9.5 }}>ALTA</span>}
               </div>
-            );
-          })}
+              {gruposAbertos.has(entry.chave) && entry.itens.map((sub: any) => <LinhaItem key={`${sub.tipo}-${sub.id}`} i={sub} critico={forte} />)}
+            </div>
+          ) : <LinhaItem key={`${entry.tipo}-${entry.id}-${k}`} i={entry} critico={forte} />)}
         </div>}
       </div>
     );
@@ -189,10 +262,13 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing }: { itens
       </div>
 
       <div>
-        <Bloco titulo="⚠ Atrasado" itens={grupos.atrasado} destaque="var(--risk)" />
-        <Bloco titulo="Hoje" itens={grupos.hoje} />
-        <Bloco titulo="Próximos 7 dias" itens={grupos.semana} />
-        <Bloco titulo="Adiante (próximos 30 dias)" itens={grupos.depois} colapsavel aberto={verAdiante} onToggle={() => setVerAdiante(v => !v)} />
+        <Bloco titulo="🔴 Decisão vencida" itens={tiers.decisaoVencida} destaque="var(--risk)" forte />
+        <Bloco titulo="Decisões e aprovações pendentes" itens={tiers.decisaoPendente} />
+        <Bloco titulo="Financeiro vencido ou de hoje" itens={tiers.financeiro} />
+        <Bloco titulo="⚠ Atrasado" itens={tiers.outroVencido} destaque="var(--risk)" />
+        <Bloco titulo="Hoje" itens={tiers.hoje} />
+        <Bloco titulo="Próximos 7 dias" itens={tiers.semana} />
+        <Bloco titulo="Adiante (próximos 30 dias)" itens={tiers.depois} colapsavel aberto={verAdiante} onToggle={() => setVerAdiante(v => !v)} />
         {lista.length === 0 && (
           <div className="panel"><div className="bd">
             <p className="hint">Nenhuma pendência. Ou está tudo em dia, ou falta cadastrar rotinas (aba Rotinas).</p>

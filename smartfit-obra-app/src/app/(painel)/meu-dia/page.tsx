@@ -7,11 +7,12 @@ export default async function MeuDia() {
   const supabase = supabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   const hoje = new Date().toISOString().slice(0, 10);
-  const [{ data: perfil }, { data: itens }, { data: obras }, { data: briefing }] = await Promise.all([
+  const [{ data: perfil }, { data: itens }, { data: obras }, { data: briefing }, { data: pessoas }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user!.id).single(),
     supabase.from('meu_dia').select('*'),
     supabase.from('obras').select('id, codigo, nome'),
     supabase.from('advisor_briefings').select('id, data, conteudo, lido').eq('usuario_id', user!.id).eq('data', hoje).maybeSingle(),
+    supabase.from('profiles').select('id, nome'),
   ]);
-  return <MeuDiaClient itens={itens ?? []} obras={obras ?? []} perfil={perfil} briefing={briefing ?? null} />;
+  return <MeuDiaClient itens={itens ?? []} obras={obras ?? []} perfil={perfil} briefing={briefing ?? null} pessoas={pessoas ?? []} />;
 }

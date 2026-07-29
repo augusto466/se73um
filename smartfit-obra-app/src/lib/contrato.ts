@@ -37,5 +37,7 @@ export const fmtPct = (v: number) =>
   (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
 export const fmtData = (d?: string | null) =>
   d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+export const fmtPeriodo = (a: string, b: string) =>
+  a === b ? fmtData(a) : `${fmtData(a).slice(0, 5)} a ${fmtData(b).slice(0, 5)}`;
 export const diasAte = (d?: string | null) =>
   d ? Math.ceil((new Date(d + 'T12:00:00').getTime() - Date.now()) / 86400000) : 0;
