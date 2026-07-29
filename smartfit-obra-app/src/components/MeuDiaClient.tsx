@@ -206,9 +206,11 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing, pessoas }
     ? <>{grupos.hoje.length} item(ns) para hoje. Nada atrasado.</>
     : <>Nada atrasado nem vencendo hoje. O dia é seu para pensar.</>;
 
-  // percentual do que já saiu do caminho, sobre o que estava previsto para o período
+  // fração da carga próxima (atrasado+hoje+7 dias) que ainda não venceu nem
+  // vence hoje — não é "concluído" (a view só lista pendentes, não há dado
+  // de conclusão aqui), é "em dia" em relação ao que está por vir.
   const totalPeriodo = grupos.atrasado.length + grupos.hoje.length + grupos.semana.length;
-  const pctConcluido = totalPeriodo > 0
+  const pctEmDia = totalPeriodo > 0
     ? Math.round((1 - (grupos.atrasado.length + grupos.hoje.length) / totalPeriodo) * 100)
     : 100;
 
@@ -251,12 +253,12 @@ export default function MeuDiaClient({ itens, obras, perfil, briefing, pessoas }
           <div style={{ display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 280 }}>
               <Metricas itens={[
-                { n: String(grupos.hoje.length + grupos.atrasado.length).padStart(2, '0'), label: 'Pendências', sub: 'para hoje', risco: grupos.atrasado.length > 0 },
+                { n: String(grupos.hoje.length + grupos.atrasado.length).padStart(2, '0'), label: 'Pendências', sub: 'atrasados + hoje', risco: grupos.atrasado.length > 0 },
                 { n: String(decisoes.length).padStart(2, '0'), label: 'Decisões', sub: 'aguardando você', risco: decisoes.length > 0 },
                 { n: String(grupos.semana.length).padStart(2, '0'), label: 'Próximos 7 dias', sub: 'atividades' },
               ]} />
             </div>
-            <Anel pct={pctConcluido} rotulo="concluído" />
+            <Anel pct={pctEmDia} rotulo="em dia" />
           </div>
         </div>
       </div>

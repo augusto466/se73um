@@ -19,7 +19,7 @@ export default function CockpitClient(p: any) {
   const criticos = alertas.filter((a: any) => a.nivel === 'critico').length;
   const impactoTravado = gargalos.reduce((s: number, g: any) => s + g.impacto, 0);
   const semSaude = saude.nota >= 75 ? 'ok' : saude.nota >= 50 ? 'atencao' : 'critico';
-  const faltaDado = !p.saldoInformado || !margem.temProjecao;
+  const faltaDado = !p.saldoInformado || !caixa.runwayConfiavel || !margem.temProjecao;
 
   const Sem = ({ s }: { s: string }) => (
     <span style={{ width: 8, height: 8, borderRadius: '50%', background: CORES[s as 'ok'], display: 'inline-block', flex: 'none' }} />
@@ -39,7 +39,7 @@ export default function CockpitClient(p: any) {
                 ? <><b>{fmtC(impactoTravado)}</b> em decisões esperando você. Nada crítico.</>
                 : <>Nada crítico e nada travado. Bom momento para olhar adiante.</>}
               {faltaDado && <><br /><span style={{ color: 'var(--warn)', fontSize: 12, fontWeight: 600 }}>
-                ⓘ Leitura parcial: {[!p.saldoInformado && 'saldo de caixa não informado', !margem.temProjecao && 'poucas compras aprovadas para projetar margem'].filter(Boolean).join(' · ')}.
+                ⓘ Leitura parcial: {[!p.saldoInformado && 'saldo de caixa não informado', p.saldoInformado && !caixa.runwayConfiavel && 'poucas semanas de lançamento para projetar o runway', !margem.temProjecao && 'poucas compras aprovadas para projetar margem'].filter(Boolean).join(' · ')}.
               </span></>}
             </div>
           </div>
@@ -154,16 +154,20 @@ export default function CockpitClient(p: any) {
               <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600 }}>{fmtC(p.saldo)}</div></div>
             <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Menor saldo projetado</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: caixa.menor < 0 ? 'var(--brand)' : 'var(--ok)' }}>{fmtC(caixa.menor)}</div></div>
-            <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Queima semanal média</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: caixa.queima === null ? 'var(--gray)' : undefined }}>
-                {caixa.queima === null ? '—' : fmtC(caixa.queima)}</div>
-              <div className="hint">{caixa.queima === null ? 'sem movimento nas próximas 4 semanas' : '4 semanas · estimativa'}</div></div>
+            <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Resultado semanal médio</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: caixa.resultadoSemanal === null ? 'var(--gray)' : undefined }}>
+                {caixa.resultadoSemanal === null ? '—' : fmtC(caixa.resultadoSemanal)}</div>
+              <div className="hint">{caixa.resultadoSemanal === null ? 'sem movimento nas próximas 4 semanas' : 'saídas − entradas · 4 semanas'}</div></div>
             <div><div className="hint" style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', fontSize: 9.5 }}>Runway</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 600, color: CORES[caixa.semaforo] }}>
-                {!caixa.saldoInformado ? '—' : caixa.semanasAteFurar !== null ? `${caixa.semanasAteFurar} semanas` : '> 26 semanas'}
+                {!caixa.saldoInformado ? '—'
+                  : !caixa.runwayConfiavel ? 'sem base'
+                  : caixa.semanasAteFurar !== null ? `${caixa.semanasAteFurar} semanas` : '> 26 semanas'}
               </div>
               {!caixa.saldoInformado
                 ? <div className="hint">informe o saldo para calcular</div>
+                : !caixa.runwayConfiavel
+                ? <div className="hint">lançamentos cadastrados cobrem só {caixa.semanasComDado} de 26 semanas</div>
                 : caixa.semanaFura && <div className="hint">fura em {fmtData(caixa.semanaFura.ini)}</div>}</div>
           </div>
 

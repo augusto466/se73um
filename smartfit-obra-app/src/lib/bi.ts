@@ -97,13 +97,29 @@ export function analisarCaixa(lancamentos: any[], saldo: number, saldoInformado:
 
   const mov = proj.slice(0, 4);
   const temMovimento = mov.some(p => p.entra > 0 || p.sai > 0);
-  const queima = temMovimento ? mov.reduce((s, p) => s + (p.sai - p.entra), 0) / 4 : null;
+  const resultadoSemanal = temMovimento ? mov.reduce((s, p) => s + (p.sai - p.entra), 0) / 4 : null;
+
+  // projetarCaixa só avança com lançamentos reais cadastrados em cada semana;
+  // uma semana sem nenhum lançamento fica com saldo estável (não cai) — não
+  // é sinal de segurança, é ausência de dado. "26 semanas sem furar" só é
+  // uma leitura confiável se pelo menos metade do horizonte projetado (13
+  // de 26 semanas) tiver lançamento real; sem isso, é a mesma extrapolação
+  // otimista que o resto do cockpit já evita. Um cruzamento de zero dentro
+  // do que já está cadastrado continua valendo mesmo com pouca amostra —
+  // só a AUSÊNCIA de alerta precisa de base mínima, o alerta em si não.
+  const MIN_SEMANAS_RUNWAY = 13;
+  const semanasComDado = proj.filter(p => p.entra > 0 || p.sai > 0).length;
+  const runwayConfiavel = semanasAteFurar !== null || semanasComDado >= MIN_SEMANAS_RUNWAY;
 
   const semaforo: Semaforo = !saldoInformado ? 'neutro'
-    : semanasAteFurar === null ? 'ok'
-    : semanasAteFurar <= 4 ? 'critico' : 'atencao';
+    : semanasAteFurar !== null ? (semanasAteFurar <= 4 ? 'critico' : 'atencao')
+    : runwayConfiavel ? 'ok'
+    : 'neutro';
 
-  return { proj, menor, semanaFura, semanasAteFurar, queima, semaforo, saldoInformado, temMovimento };
+  return {
+    proj, menor, semanaFura, semanasAteFurar, resultadoSemanal, semaforo,
+    saldoInformado, temMovimento, runwayConfiavel, semanasComDado,
+  };
 }
 
 /* ---------- 3) PRAZO ---------- */
@@ -262,8 +278,10 @@ export function calcularSaude(margem: any, caixa: any, prazos: any[], alertas: a
     base: margem.temProjecao ? 'projeção pelas compras' : 'orçamento da proposta',
   });
 
-  // Caixa: só entra se o saldo foi informado
-  if (caixa.saldoInformado) {
+  // Caixa: só entra se o saldo foi informado E o runway for confiável — sem
+  // isso, "nunca fura" pode só significar que faltam lançamentos cadastrados
+  // para projetar, não que o caixa está seguro (mesmo princípio do runway).
+  if (caixa.saldoInformado && caixa.runwayConfiavel) {
     dims.push({
       nome: 'Caixa',
       nota: caixa.semanasAteFurar === null ? 100 : caixa.semanasAteFurar > 12 ? 70 : caixa.semanasAteFurar > 4 ? 40 : 0,
@@ -283,7 +301,7 @@ export function calcularSaude(margem: any, caixa: any, prazos: any[], alertas: a
 
   const somaPeso = dims.reduce((s, d) => s + d.peso, 0);
   const nota = Math.round(dims.reduce((s, d) => s + d.nota * d.peso, 0) / somaPeso);
-  const completo = caixa.saldoInformado && margem.temProjecao;
+  const completo = caixa.saldoInformado && caixa.runwayConfiavel && margem.temProjecao;
   return { nota, dims, completo };
 }
 
