@@ -45,6 +45,7 @@ export default function Sidebar({ papel, perfil, obras, obraAtiva, badges, logoE
       ...(gestor ? [{ href: '/replanejamento', label: 'Replanejamento', ic: '◫' }] : []),
       { href: '/medicoes', label: 'Faturamento', ic: '▩' },
       ...(gestor ? [{ href: '/financeiro', label: 'Financeiro', ic: '▣', badge: badges.financeiro }] : []),
+      ...(papel === 'admin' ? [{ href: '/conciliacao', label: 'Conciliação', ic: '▥' }] : []),
       ...(gestor ? [{ href: '/orcamento', label: 'Orçamento', ic: '▨' }] : []),
     ]},
     { titulo: 'Operação', itens: [
